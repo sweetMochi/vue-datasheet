@@ -1,0 +1,10 @@
+# 換行一律以 LF 儲存並簽出，與 .editorconfig 的 end_of_line = lf 一致
+* text=auto eol=lf
+
+# 二進位檔不做任何轉換
+*.png binary
+*.jpg binary
+*.pdf binary
+*.ico binary
+*.woff binary
+*.woff2 binary
