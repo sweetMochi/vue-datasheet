@@ -81,7 +81,7 @@ export interface ExtractionSubscription {
 /**
  * 傳輸層介面。
  *
- * 實作見 api/eventSourceTransport.ts；測試用的假實作見 composables/useExtraction.test.ts。
+ * 預設實作見 api/fetchStreamTransport.ts；測試用的假實作見 composables/useExtraction.test.ts。
  */
 export type ExtractionTransport = (
   documentId: string,

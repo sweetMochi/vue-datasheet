@@ -1,1 +1,8 @@
-@import 'tailwindcss';
+/*
+ * 切版尚未開始，這個階段刻意留在瀏覽器預設樣式上。
+ *
+ * Tailwind 的 preflight 會把 table 框線、標題級距、清單符號全部歸零，
+ * 在還沒有任何 class 的情況下只會讓資料更難讀，所以等進切版階段再放回來：
+ *
+ * @import 'tailwindcss';
+ */

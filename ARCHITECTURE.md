@@ -14,9 +14,14 @@
 | 傳輸層（`src/api/`）                    | ✅ 已建立，`fetch` ＋ `ReadableStream`                                           |
 | 狀態與 composable（`src/composables/`） | ✅ 已建立                                                                        |
 | 測試                                    | ✅ 45 支，涵蓋 SSE 分幀、HTTP 狀態分流、分組順序、送出阻擋、中止、中途失敗、重設 |
-| 元件（`src/components/`）               | ⬜ 尚未建立，本文件的「元件配置」章節是規劃                                      |
+| 元件（`src/components/`）               | ⬜ 尚未拆分，本文件的「元件配置」章節是規劃                                      |
 
-`src/App.vue` 目前仍只有外框，沒有接上任何一支 composable
+`src/App.vue` 已把上傳與串流顯示接起來，但刻意停在**原生 HTML 元素、零樣式**的狀態：
+這個階段要驗證的是資料有沒有正確地邊串邊進畫面，不是版面。編輯、確認、挑候選、送出
+都還沒接上（store 已經有這些動作），元件拆分與切版一併留到下一階段
+
+同理，`src/style.css` 暫時把 `@import 'tailwindcss'` 註解掉 —— preflight 會把 table
+框線與標題級距歸零，在還沒有任何 class 的情況下只會讓資料更難讀
 
 ---
 
@@ -82,7 +87,7 @@ flowchart LR
 
 元件永遠不直接碰 `fetch`，也不直接碰串流。傳輸層是一個可注入的介面（`ExtractionTransport`），測試塞假的進去就能推事件，不需要真的後端，也不需要等真的時間
 
-這個介面已經被兩種實作填過（`fetchStreamTransport` 與 `eventSourceTransport`），換掉傳輸方式時 store、composable、既有測試一行都不用改
+這個介面先後被 `EventSource` 與 `fetchStreamTransport` 兩種實作填過（見決策 08），換掉傳輸方式時 store、composable、既有測試一行都不用改
 
 ---
 
@@ -107,7 +112,7 @@ flowchart LR
 
 色條、待處理計數、群組角標、篩選條件全部從 `resolveStatus()` 衍生。散到各元件裡就會出現「側欄說 5 個、清單只有 4 條有色」這種對不起來的情況。閾值要調也只改一個地方
 
-**判斷優先序**：`missing` ＞ `multi-candidate` ＞ `low-confidence` ＞ `ok`
+**判斷優先序**：`missing` ＞ `multiCandidate` ＞ `lowConfidence` ＞ `ok`
 
 多候選排在低把握之前，是因為候選是「要你挑一個」，動作比「去看一眼」明確。後端給多候選時一定同時給低把握度，兩者永遠同時成立
 
@@ -137,7 +142,11 @@ type ExtractionTransport = (
 
 ### `src/api/http.ts` — 位址與錯誤型別
 
-後端位址走 `VITE_API_BASE` 環境變數而不是寫死，因為進 docker compose 之後服務名會變
+後端位址走 `VITE_API_BASE` 環境變數而不是寫死
+
+**理由不是 docker compose 的服務名**。發出這些請求的是使用者的瀏覽器，它跑在主機上、不在 compose 網路裡，解析不到 `api` 這個名字。所以前端就算也進了 compose，這個值仍然是 `http://localhost:8000`——要讓前端用服務名連後端，得改走 Vite proxy 由容器內轉發，而不是改這個常數
+
+真正會需要換掉它的是這三種情況：8000 被別的東西佔走而改了 `docker-compose.yml` 的 `ports`、從區域網路上的另一台裝置連 `vite --host` 開出來的頁面（此時 `localhost` 指的是那台裝置自己）、以及部署到 localhost 以外的位址
 
 `ApiError` 帶 `status`，讓呼叫端能分辨「HTTP 層失敗」與「串流中途失敗」—— 這兩件事在畫面上的文案與可用動作都不同
 
@@ -198,8 +207,6 @@ type ExtractionTransport = (
 `EventSource` 在串流被伺服器正常關閉後會自己重連，原本得靠 `close()` ＋ `settled` 旗標在三條路徑上壓住它。而且後端從不送 `id:`，就算重連也無法續傳，只會整份重跑一次——這個「功能」在本專案是純粹的危害
 
 **失去了什麼**：自動重連與 `Last-Event-ID` 續傳。如上，後端本來就不支援續傳，所以代價是零。哪天後端加上 `id:` 與續傳，這個判斷要重新評估
-
-**保留 `eventSourceTransport.ts` 的原因**：同一個介面被兩種實作填過，是「傳輸層可抽換」最直接的證據。檔案開頭已標明它不是預設
 
 ---
 

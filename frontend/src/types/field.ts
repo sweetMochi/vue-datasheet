@@ -47,12 +47,12 @@ export interface FieldDraft {
 }
 
 /**
- * 一列在畫面上的狀態，決定左側色條的顏色。
+ * 資訊狀態，決定左側色條的顏色
  *
- * 只有四種，而且只有 missing 會擋住送出。
- * 判斷優先序：missing > multi-candidate > low-confidence > ok
+ * 只有 missing 為必填欄位
+ * 判斷優先序：missing > multiCandidate > lowConfidence > ok
  */
-export type FieldStatus = 'missing' | 'multi-candidate' | 'low-confidence' | 'ok'
+export type FieldStatus = 'missing' | 'multiCandidate' | 'lowConfidence' | 'ok'
 
 /**
  * 低把握度的界線。
@@ -82,10 +82,10 @@ export function resolveStatus(field: ExtractedField, draft: FieldDraft): FieldSt
   if (draft.confirmed || draft.touched) return 'ok'
 
   // 候選答案是「要你挑一個」，比「把握度低」更明確，所以排在前面
-  if (field.candidates && field.candidates.length > 1) return 'multi-candidate'
+  if (field.candidates && field.candidates.length > 1) return 'multiCandidate'
 
   if (field.confidence !== null && field.confidence < LOW_CONFIDENCE_THRESHOLD) {
-    return 'low-confidence'
+    return 'lowConfidence'
   }
 
   // 非必填又沒抽到的欄位不標色：使用者無從得知文件裡到底有沒有這個值，

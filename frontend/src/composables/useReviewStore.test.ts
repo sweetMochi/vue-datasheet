@@ -47,8 +47,8 @@ describe('欄位狀態', () => {
     const store = seed()
 
     expect(store.statusOf('f1')).toBe('missing') // 必填但沒抽到
-    expect(store.statusOf('f3')).toBe('low-confidence') // 0.39
-    expect(store.statusOf('f6')).toBe('multi-candidate') // 候選優先於低把握
+    expect(store.statusOf('f3')).toBe('lowConfidence') // 0.39
+    expect(store.statusOf('f6')).toBe('multiCandidate') // 候選優先於低把握
     expect(store.statusOf('f2')).toBe('ok') // 0.95
     expect(store.statusOf('f4')).toBe('ok') // 必填但有抽到
 
