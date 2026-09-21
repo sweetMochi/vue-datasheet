@@ -4,9 +4,11 @@ services:
     ports:
       - "8000:8000"
 
-  web:
-    build: ./frontend
-    ports:
-      - "5173:5173"
-    depends_on:
-      - api
+  # 請把你的前端加在這裡，例如：
+  #
+  # web:
+  #   build: ./frontend
+  #   ports:
+  #     - "5173:5173"
+  #   depends_on:
+  #     - api
