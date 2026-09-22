@@ -1,0 +1,12 @@
+# 沒有這份檔案，node_modules（約 179 MB）每次都會整包送進 build context
+node_modules
+dist
+coverage
+
+# .env.local 是個人覆寫（改 port、區網另一台裝置的 IP）。
+# 一旦被 COPY . . 帶進去就會蓋掉 .env 的預設值烤進 bundle，而且從映像外面看不出來。
+# .gitignore 擋得住 git，擋不住 docker
+.env.local
+
+Dockerfile
+.dockerignore

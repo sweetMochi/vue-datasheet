@@ -20,7 +20,7 @@
 | 狀態與 composable        | ✅ 完成   | `useReviewStore` / `useExtraction` / `useFieldFilters`（[依賴圖](ARCHITECTURE.md#store-依賴關係)）                              |
 | 上傳 / 解析中 / 審核介面 | ⬜ 未開始 | 三個階段，元件規劃見 [ARCHITECTURE.md](ARCHITECTURE.md#元件配置規劃尚未建立)                                                        |
 | 防護性測試               | ✅ 45 支  | SSE 分幀、HTTP 狀態分流、中止、解析中途失敗、必填缺漏擋送出、候選答案挑選、重設（[清單](ARCHITECTURE.md#測試防的是什麼)）       |
-| Docker 整合              | ⬜ 未開始 | `frontend/Dockerfile` 與 `docker-compose.yml`                                                                               |
+| Docker 整合              | 🟡 已建立 | 根目錄 `docker-compose.yml` ＋ `frontend/Dockerfile`（多階段 build → nginx），**尚未實跑驗證** |
 | 虛擬捲動                 | ⬜ 未決定 | 先用 `?field_count=300` 量測是否真的卡                                                                                      |
 | 無障礙、跨裝置           | ⬜ 未開始 | 題目列為加分項                                                                                                              |
 | 題目指定的 README 問答   | ⬜ 未撰寫 | 九項，見文末清單                                                                                                            |
@@ -31,25 +31,55 @@
 
 ## 快速開始
 
+三套跑法，用途不同
+
+### 一、日常開發
+
+改程式碼走這條，存檔立刻看得到：
+
+```bash
+docker compose up -d api          # 只起後端，http://localhost:8000
+cd frontend && npm run dev        # http://localhost:5173，熱更新
+```
+
+指定服務名 `api` 是必要的 —— 不指定會把 `web` 一起拉起來，多等一輪 build 卻完全用不到：它 serve 的是 build 當下凍結的產物，改了 `src/` 也不會變。後端日誌看 `docker compose logs -f api`
+
+前端第一次要先裝：
+
 ```bash
 cd frontend
 npm install
 npx playwright install chromium   # 測試在真瀏覽器裡跑，需要下載 Chromium（約 115 MB）
+```
 
-npm run dev        # 開發伺服器 http://localhost:5173
+其餘指令：
+
+```bash
 npm run typecheck  # vue-tsc --noEmit
 npm run lint
 npm run test       # Vitest browser mode
 npm run build
 ```
 
-後端另外啟動：
+### 二、交付驗證
+
+評審打開時看到的東西，跟這條路徑跑出來的一致：
 
 ```bash
-cd mock-backend && docker compose up
+docker compose up --build         # http://localhost:8080
 ```
 
-Docker 尚未整合，見「目前進度」
+前端是 `npm run build` 的產物交給 nginx，不是 dev server。有五件事只有走這條路徑才驗得到：`VITE_API_BASE` 真的被替換進 bundle、`vue-tsc` 沒被跳過、SSE 沒被中間層緩衝、上傳大檔沒被擋、api 還沒就緒時開頁面會怎樣
+
+`web` 刻意不佔 5173，理由見 `docker-compose.yml` 的註解
+
+### 三、交件前跑一次
+
+```bash
+git clone . ../verify && cd ../verify && docker compose up --build
+```
+
+從 clone 出來的副本跑，build context 裡只有 git 追蹤到的檔案。這一步專門擋「本機 build 得過，是因為 context 裡有沒提交進 git 的檔案」那一類問題 —— 快取和工作目錄會一路掩護到交件為止
 
 ---
 
@@ -101,13 +131,14 @@ Docker 尚未整合，見「目前進度」
 | 03  | 假後端          | Vite middleware，不用 MSW                      | **推翻結論** | [詳細](log/03-msw-中止驗證.md)                               |
 | 04  | 專案骨架        | 工具鏈五項檢查全綠                             | 指定範圍     | [詳細](log/04-骨架建置與驗證.md)                             |
 | 05  | 執行期依賴      | 只留 `vue`                                     | 無           | —                                                            |
-| 06  | Docker 整合     | 延後，需先決定 compose 檔位置                  | 無           | —                                                            |
+| 06  | Docker 整合     | compose 移至根目錄，前端 build 產物交給 nginx，不反代 | **選定方案** | [詳細](log/06-docker-整合.md)                                |
 | 07  | 虛擬捲動        | 延後，需先用 300 欄位實測                      | 無           | —                                                            |
 | 08  | SSE 傳輸方式    | `EventSource` → `fetch` ＋ `ReadableStream`    | **指定方向** | [詳細](ARCHITECTURE.md#srcapifetchstreamtransportts--預設傳輸層) |
+| 09  | 後端位址設定    | 預設值移入 `.env`，程式碼不做執行期判斷        | **指出矛盾** | [詳細](ARCHITECTURE.md#srcapihttpts--位址與錯誤型別)         |
 
-### 人工介入的兩處修正
+### 人工介入的三處修正
 
-這兩處是 AI 的判斷被人工改掉的地方，對最終架構有實質影響：
+這三處是 AI 的判斷被人工改掉的地方，對最終架構有實質影響：
 
 **一、Vitest + happy-dom → Playwright browser mode**（[log/02](log/02-測試環境選型.md)）
 
@@ -124,6 +155,18 @@ AI 實測後判定「MSW 驗證不了中止契約」，並以此作為捨棄 MSW
 人工提問能否改監聽 `request.signal.aborted`，指出 AI 測錯了掛鉤 — MSW 不是透過 `ReadableStream.cancel()` 傳遞中止；重測確認 `request.signal` 完全有效，伺服器確實會停止產出
 
 原本的推薦理由因此不成立，最終仍維持 browser mode，但理由換成「原生 API 無 polyfill 落差、樣式與互動可測」，而不是「MSW 做不到」
+
+**三、`VITE_API_BASE` 的存在理由寫錯了**（決策 09）
+
+AI 給這個環境變數寫的理由是「進 docker compose 之後服務名會變」，`http.ts` 與 `ARCHITECTURE.md` 兩處都這麼寫
+
+人工指出這句話自相矛盾：發出請求的是使用者的**瀏覽器**，它跑在主機上、不在 compose 網路裡，解析不到 `api` 這個名字。照原句的暗示把值改成 `http://api:8000`，前端會直接連不上後端
+
+環境變數的結論不變，但理由換成真正成立的三種情況：8000 被佔走而改了 `ports`、從區域網路另一台裝置連 `vite --host` 開出來的頁面、部署到 localhost 以外的位址
+
+人工接著指出它是 build-time 的靜態值，執行期沒有「有沒有設」可判斷。於是預設值移進 `frontend/.env`，程式碼從 `(import.meta.env.VITE_API_BASE ?? 'http://localhost:8000').replace(/\/$/, '')` 簡化成直接讀取，並在 `env.d.ts` 補上 `ImportMetaEnv` 讓型別從 `any` 變成 `string`
+
+> 這件事替決策 06（Docker 整合）先定了一條限制：這個值**不能**用 compose 的 `environment:` 注入，那對已經打包好的靜態檔沒有作用，得在 build 那一步就給 —— 已落實，見 [log/06](log/06-docker-整合.md)
 
 ### 其他過程中的錯誤
 

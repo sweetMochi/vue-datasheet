@@ -15,6 +15,7 @@
 | 狀態與 composable（`src/composables/`） | ✅ 已建立                                                                        |
 | 測試                                    | ✅ 45 支，涵蓋 SSE 分幀、HTTP 狀態分流、分組順序、送出阻擋、中止、中途失敗、重設 |
 | 元件（`src/components/`）               | ⬜ 尚未拆分，本文件的「元件配置」章節是規劃                                      |
+| 容器化                                  | 🟡 `frontend/Dockerfile` ＋ 根目錄 `docker-compose.yml` 已建立，尚未實跑驗證（[log/06](log/06-docker-整合.md)） |
 
 `src/App.vue` 已把上傳與串流顯示接起來，但刻意停在**原生 HTML 元素、零樣式**的狀態：
 這個階段要驗證的是資料有沒有正確地邊串邊進畫面，不是版面。編輯、確認、挑候選、送出
@@ -142,9 +143,13 @@ type ExtractionTransport = (
 
 ### `src/api/http.ts` — 位址與錯誤型別
 
-後端位址走 `VITE_API_BASE` 環境變數而不是寫死
+後端位址走 `VITE_API_BASE` 環境變數而不是寫死，預設值放在 `frontend/.env`，個人覆寫放 `.env.local`（已被 `.gitignore` 排除）
 
-**理由不是 docker compose 的服務名**。發出這些請求的是使用者的瀏覽器，它跑在主機上、不在 compose 網路裡，解析不到 `api` 這個名字。所以前端就算也進了 compose，這個值仍然是 `http://localhost:8000`——要讓前端用服務名連後端，得改走 Vite proxy 由容器內轉發，而不是改這個常數
+**它是 build-time 的靜態值**，不是執行期才讀的設定 —— Vite 打包時把它字面替換進 bundle（`npm run build` 後 `dist/assets/*.js` 裡只剩 `http://localhost:8000`，找不到 `VITE_API_BASE` 這個名字）。所以程式碼裡不做 `??` 後備、也不正規化結尾斜線：值一定存在，長什麼樣子在 `.env` 就看得到
+
+這也代表 **Docker 整合時不能用 compose 的 `environment:` 注入**，那對已經打包好的靜態檔沒有作用，得在 build 那一步就給 —— 已落實成 `docker-compose.yml` 的 `build.args` 與 `frontend/Dockerfile` 的 `ARG VITE_API_BASE`
+
+**它必須填瀏覽器連得到的位址，不能填 compose 的服務名**（`http://api:8000`）。發出這些請求的是使用者的瀏覽器，它跑在主機上、不在 compose 網路裡，解析不到 `api` 這個名字。所以前端就算也進了 compose，這個值仍然是 `http://localhost:8000`。要讓前端改用服務名，得由**容器裡的那一層**反代 `/api`（跑 nginx 就是 nginx，容器內若跑的是 Vite 才輪到 Vite proxy），而不是改這個值 —— 本專案選擇不反代，取捨見 [log/06](log/06-docker-整合.md)
 
 真正會需要換掉它的是這三種情況：8000 被別的東西佔走而改了 `docker-compose.yml` 的 `ports`、從區域網路上的另一台裝置連 `vite --host` 開出來的頁面（此時 `localhost` 指的是那台裝置自己）、以及部署到 localhost 以外的位址
 

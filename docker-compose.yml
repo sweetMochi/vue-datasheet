@@ -1,0 +1,26 @@
+# 原本在 mock-backend/ 底下，出題方只放了 api 一個服務。
+# 移到 repo 根目錄是因為它現在同時管前後端，build context 各自指向自己的目錄，
+# 前端不必寫成 ../frontend 跳出去一層。mock-backend/ 的內容一個字都沒動。
+services:
+  api:
+    build: ./mock-backend
+    ports:
+      - "8000:8000"
+
+  web:
+    build:
+      context: ./frontend
+      args:
+        # VITE_API_BASE 是 build-time 的字面替換，compose 的 environment: 對已經
+        # 打包好的靜態檔沒有作用，只能從 build args 進去
+        # 見 ARCHITECTURE.md「src/api/http.ts — 位址與錯誤型別」
+        #
+        # 填 localhost 而不是服務名 api：發出這些請求的是使用者的瀏覽器，
+        # 它跑在主機上、不在這張 compose 網路裡，解析不到 api 這個名字
+        VITE_API_BASE: http://localhost:8000
+    ports:
+      # 刻意不用出題方註解建議的 5173。那個數字在前端圈的語意就是 Vite dev server，
+      # 讓 production 產物佔走它，日常開發跑 npm run dev 時還會撞埠
+      - "8080:80"
+    depends_on:
+      - api
