@@ -99,6 +99,26 @@ grep -ro "localhost:8000" dist/assets/      # 無殘留
 
 這一項是用 curl 驗的。瀏覽器送 multipart 時同樣是 UTF-8 位元組，推測結果一樣，但**沒有實測過瀏覽器**
 
+## 另一個副作用：Docker Desktop 會讓測試跑不起來
+
+Docker Desktop 起來之後，`npm run test` 固定撞 `listen EACCES 0.0.0.0:63315`
+
+Vitest browser mode 的埠從 `defaultBrowserPort = 63315` 開始分配，而 Docker Desktop 啟動時會向 Hyper-V 預留一段動態埠，這台機器上是：
+
+```
+$ netsh interface ipv4 show excludedportrange protocol=tcp
+  63295  63394
+  63395  63494
+```
+
+63315 正落在裡面。這不是機率問題 —— 埠固定從 63315 起算，只要 Docker Desktop 開著就一定撞，重跑幾次都是同一個埠
+
+修法是 `vite.config.ts` 的 `test` 底下加 `api: { port: 5199 }`。設定鍵是 `test.api` 而不是 `test.browser.api`：埠由 `resolveApiServerConfig(testConfig, ...)` 讀 `test.api` 決定，設在 `browser` 底下實測完全沒有作用
+
+**為什麼這件事該記下來**：題目同時要求 `docker compose up` 能用、也要求有測試。在 Windows 上兩件事都做就會撞上這面牆，而當下看起來會像是測試本身壞掉，不會有人聯想到 Docker
+
+修好之後 45 支全過，882 ms
+
 ## 還沒驗的
 
 - api 還在啟動時開頁面的實際表現 —— 靜態檔本身不依賴 api（web 容器單獨起得來），但前端此時的錯誤處理長什麼樣，要等介面做完才看得出來

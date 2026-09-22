@@ -18,14 +18,14 @@
 | 型別與領域規則           | ✅ 完成   | `ExtractedField` / `FieldDraft` 分離，狀態判準單一來源（[說明](ARCHITECTURE.md#srctypesfieldts--領域型別與唯一的狀態判準)）     |
 | SSE 傳輸層               | ✅ 完成   | `fetch` ＋ `ReadableStream`，可注入介面、依 HTTP 狀態碼分流（[說明](ARCHITECTURE.md#srcapifetchstreamtransportts--預設傳輸層)） |
 | 狀態與 composable        | ✅ 完成   | `useReviewStore` / `useExtraction` / `useFieldFilters`（[依賴圖](ARCHITECTURE.md#store-依賴關係)）                              |
-| 上傳 / 解析中 / 審核介面 | ⬜ 未開始 | 三個階段，元件規劃見 [ARCHITECTURE.md](ARCHITECTURE.md#元件配置規劃尚未建立)                                                        |
+| 上傳 / 解析中 / 審核介面 | 🟡 唯讀   | `App.vue` 已接上串流顯示、分組、進度、中止、重試與錯誤分流；編輯、確認、挑候選、送出尚未接上，且刻意零樣式（[元件規劃](ARCHITECTURE.md#元件配置規劃尚未建立)）  |
 | 防護性測試               | ✅ 45 支  | SSE 分幀、HTTP 狀態分流、中止、解析中途失敗、必填缺漏擋送出、候選答案挑選、重設（[清單](ARCHITECTURE.md#測試防的是什麼)）       |
 | Docker 整合              | ✅ 完成   | 根目錄 `docker-compose.yml` ＋ `frontend/Dockerfile`（多階段 build → nginx），冷啟 20 秒，已實跑驗證 |
 | 虛擬捲動                 | ⬜ 未決定 | 先用 `?field_count=300` 量測是否真的卡                                                                                      |
 | 無障礙、跨裝置           | ⬜ 未開始 | 題目列為加分項                                                                                                              |
 | 題目指定的 README 問答   | ⬜ 未撰寫 | 九項，見文末清單                                                                                                            |
 
-資料層（型別、傳輸、狀態）已完成並有測試覆蓋，但 `src/App.vue` 仍只有外框，尚未接上任何一支 composable
+資料層（型別、傳輸、狀態）已完成並有測試覆蓋。`src/App.vue` 已接上 store 與串流，欄位會邊收邊進畫面，但停在**唯讀、無樣式**的階段 —— 寫入動作（編輯、確認、挑候選、送出）store 都有，只是畫面還沒接上，切版與元件拆分也還沒開始
 
 ---
 
