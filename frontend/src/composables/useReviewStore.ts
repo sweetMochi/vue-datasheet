@@ -21,7 +21,7 @@ import type {
  * 審核流程的唯一狀態來源。
  *
  * 不用 Pinia：整個流程是單一文件的單一狀態機，一支 composable 就涵蓋，
- * 多一層 store 只是把 ref 換個地方放（理由見根目錄 README 的「刻意不裝」）。
+ * 多一層 store 只是把 ref 換個地方放（理由見根目錄 SCAFFOLD.md 的「刻意不裝」）。
  *
  * 兩條必須守住的規則：
  *
@@ -137,6 +137,22 @@ export function createReviewStore() {
   const isStreaming = computed(() => phase.value === 'uploading' || phase.value === 'parsing')
 
   /**
+   * 使用者動過手的欄位：改過值、挑過候選，或按過確認。
+   *
+   * 「按過確認」也算 —— 那同樣是使用者花時間做出的判斷，重新解析一樣會丟掉。
+   * 只看 touched 會讓「審完 40 個高把握欄位」這種工作在警告裡被當成不存在。
+   */
+  const editedIds = computed(() =>
+    order.value.filter((id) => {
+      const draft = drafts.get(id)
+      return !!draft && (draft.touched || draft.confirmed)
+    }),
+  )
+
+  /** 重新解析前要不要先問使用者 */
+  const hasUserEdits = computed(() => editedIds.value.length > 0)
+
+  /**
    * 失敗或中止之後，能不能重跑同一份文件。
    *
    * 後端 README 寫明「服務重啟後已上傳的 document_id 會失效」，此時 extract 端點回 404。
@@ -171,7 +187,15 @@ export function createReviewStore() {
   }
 
   function applyField(field: ExtractedField) {
-    // 同一個 id 重送時覆蓋事實，但保留使用者已經改過的草稿
+    // 同一條串流內 id 不會重複，這裡的 has() 只是防禦重送，不是合併機制。
+    //
+    // ⚠️ 絕對不要把這裡當成「跨解析保留使用者修改」的地方。
+    // 後端的 id 是「洗牌之後的位置序號」（server.py 先 random.shuffle(picked)
+    // 再用 f"f{i+1}" 編號），所以重跑一次同一份文件，f7 從「產品編號」變成「品名」
+    // 是常態 —— 實測兩次解析 18 個欄位，label 對得起來的是 0 個。
+    // 以 id 合併會把使用者對「品名」的修改套到現在叫「鈉」的欄位上，
+    // 那是靜默的資料汙染，比整批丟掉更糟。
+    // 重新解析一律走 discardExtraction()，見 REVIEW.md 的「重新解析會丟掉什麼」。
     if (!fields.has(field.id)) order.value = [...order.value, field.id]
     fields.set(field.id, field)
     if (!drafts.has(field.id)) drafts.set(field.id, createDraft(field))
@@ -236,8 +260,16 @@ export function createReviewStore() {
     order.value = []
   }
 
-  /** 同一份文件重新解析：清掉欄位與錯誤，但保留 document_id */
-  function resetExtraction() {
+  /**
+   * 同一份文件重新解析：清掉欄位、草稿與錯誤，但保留 document_id。
+   *
+   * 名字裡有 discard 是刻意的 —— 這個動作會**丟掉使用者所有的修改與確認**。
+   * 呼叫端有義務先看 hasUserEdits，該問的時候要問過使用者。
+   *
+   * 為什麼不能只清 fields 保留 drafts：後端的 id 跨解析不穩定，
+   * 詳見 applyField 的註解與 ARCHITECTURE.md 的「重新解析會丟掉什麼」。
+   */
+  function discardExtraction() {
     progress.value = { stage: '', percent: 0, total: null }
     streamError.value = null
     fields.clear()
@@ -266,6 +298,8 @@ export function createReviewStore() {
     submitPayload,
     isStreaming,
     canRetry,
+    editedIds,
+    hasUserEdits,
     // SSE
     beginUpload,
     documentUploaded,
@@ -281,7 +315,7 @@ export function createReviewStore() {
     resetField,
     markSubmitted,
     reset,
-    resetExtraction,
+    discardExtraction,
   }
 }
 

@@ -143,7 +143,7 @@ describe('重新解析', () => {
     fake.emit().onError({ message: '壞了', code: 'UPSTREAM_TIMEOUT' })
 
     const uploadCalls = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.length
-    expect(extraction.retry()).toBe(true)
+    expect(extraction.retry()).toBe('started')
 
     // 第二次串流用的還是同一個 id，而且沒有再打一次上傳端點
     expect(fake.documentIds).toEqual(['doc-1', 'doc-1'])
@@ -161,7 +161,7 @@ describe('重新解析', () => {
     fake.emit().onError({ message: '這份文件在後端已失效', code: 'DOCUMENT_EXPIRED' })
 
     expect(store.canRetry.value).toBe(false)
-    expect(extraction.retry()).toBe(false)
+    expect(extraction.retry()).toBe('unavailable')
 
     // 只有最初那一條，沒有第二條
     expect(fake.documentIds).toEqual(['doc-1'])
@@ -176,6 +176,61 @@ describe('重新解析', () => {
     fake.emit().onError({ message: '解析服務暫時無法回應', code: 'UPSTREAM_TIMEOUT' })
 
     expect(store.canRetry.value).toBe(true)
+  })
+
+  it('使用者改過欄位時先要求確認，不直接丟掉他的工作', async () => {
+    const fake = fakeTransport()
+    const { store, extraction } = await parsing(fake.transport)
+
+    fake.emit().onField(sampleField)
+    store.setValue('f1', '使用者改的值')
+    fake.emit().onError({ message: '壞了', code: 'UPSTREAM_TIMEOUT' })
+
+    expect(extraction.retry()).toBe('needs-confirm')
+
+    // 沒有開新連線，修改也還在
+    expect(fake.documentIds).toEqual(['doc-1'])
+    expect(store.order.value).toEqual(['f1'])
+    expect(store.drafts.get('f1')?.value).toBe('使用者改的值')
+  })
+
+  it('明確帶 discardEdits 才真的重跑', async () => {
+    const fake = fakeTransport()
+    const { store, extraction } = await parsing(fake.transport)
+
+    fake.emit().onField(sampleField)
+    store.setValue('f1', '使用者改的值')
+    fake.emit().onError({ message: '壞了', code: 'UPSTREAM_TIMEOUT' })
+
+    expect(extraction.retry({ discardEdits: true })).toBe('started')
+
+    expect(fake.documentIds).toEqual(['doc-1', 'doc-1'])
+    expect(store.order.value).toEqual([])
+    expect(store.drafts.size).toBe(0)
+  })
+
+  it('只按過確認、沒改過值，一樣要先問過', async () => {
+    const fake = fakeTransport()
+    const { store, extraction } = await parsing(fake.transport)
+
+    fake.emit().onField(sampleField)
+    store.confirm('f1')
+    fake.emit().onError({ message: '壞了', code: 'UPSTREAM_TIMEOUT' })
+
+    // 確認也是使用者花時間做出的判斷，重跑一樣會丟掉
+    expect(store.hasUserEdits.value).toBe(true)
+    expect(extraction.retry()).toBe('needs-confirm')
+  })
+
+  it('沒有任何修改時不多問一句，直接重跑', async () => {
+    const fake = fakeTransport()
+    const { store, extraction } = await parsing(fake.transport)
+
+    fake.emit().onField(sampleField)
+    fake.emit().onError({ message: '壞了', code: 'UPSTREAM_TIMEOUT' })
+
+    expect(store.hasUserEdits.value).toBe(false)
+    expect(extraction.retry()).toBe('started')
   })
 })
 

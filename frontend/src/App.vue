@@ -49,6 +49,24 @@ const STATUS_TEXT: Record<FieldStatus, string> = {
   ok: '',
 }
 
+/**
+ * 「重新解析」的確認。
+ *
+ * 重跑會把使用者改過與確認過的欄位全部丟掉 —— 後端的 id 跨解析不穩定，
+ * 沒辦法把舊修改對回新結果（見 useReviewStore.applyField 的註解）。
+ * 所以有修改時先問，不自作主張。
+ */
+const pendingRetryConfirm = ref(false)
+
+function requestRetry() {
+  if (retry() === 'needs-confirm') pendingRetryConfirm.value = true
+}
+
+function confirmRetry() {
+  pendingRetryConfirm.value = false
+  retry({ discardEdits: true })
+}
+
 const PHASE_TEXT: Record<string, string> = {
   idle: '尚未開始',
   uploading: '上傳中',
@@ -116,7 +134,18 @@ const PHASE_TEXT: Record<string, string> = {
 
       <p>
         <button v-if="store.isStreaming.value" type="button" @click="abort()">中止解析</button>
-        <button v-if="store.canRetry.value" type="button" @click="retry()">重新解析</button>
+        <button v-if="store.canRetry.value" type="button" @click="requestRetry()">重新解析</button>
+      </p>
+
+      <!--
+        重新解析會丟掉使用者的修改。這裡是確認，不是提示 ——
+        後端重跑回傳的是一份全新的結果，舊的修改對不回去
+      -->
+      <p v-if="pendingRetryConfirm">
+        <strong>重新解析會丟掉你改過的 {{ store.editedIds.value.length }} 個欄位。</strong>
+        後端重跑會回傳一份全新的結果，舊的修改沒辦法對回去。
+        <button type="button" @click="confirmRetry()">確定，重新解析</button>
+        <button type="button" @click="pendingRetryConfirm = false">取消</button>
       </p>
 
       <!-- 上傳失敗與串流中途失敗是兩件事，文案與可用動作都不同 -->

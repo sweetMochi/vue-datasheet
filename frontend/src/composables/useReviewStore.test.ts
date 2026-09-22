@@ -138,11 +138,63 @@ describe('解析中途失敗', () => {
   it('重新解析會清掉舊欄位但保留 document_id', () => {
     const store = seed()
     store.applyError({ message: '壞了', code: 'UPSTREAM_TIMEOUT' })
-    store.resetExtraction()
+    store.discardExtraction()
 
     expect(store.order.value).toEqual([])
     expect(store.streamError.value).toBeNull()
     expect(store.phase.value).toBe('parsing')
     expect(store.document.value?.document_id).toBe('doc-1')
+  })
+})
+
+describe('使用者修改的偵測', () => {
+  it('改過值、挑過候選、按過確認都算動過手', () => {
+    const store = seed()
+    expect(store.hasUserEdits.value).toBe(false)
+
+    store.setValue('f3', '新批號')
+    expect(store.editedIds.value).toEqual(['f3'])
+
+    store.chooseCandidate('f6', '2026/05/30')
+    store.confirm('f2')
+
+    // 維持文件順序，不是操作順序
+    expect(store.editedIds.value).toEqual(['f2', 'f3', 'f6'])
+    expect(store.hasUserEdits.value).toBe(true)
+  })
+
+  it('重設之後該欄位不再算動過手', () => {
+    const store = seed()
+    store.setValue('f3', '新批號')
+    store.resetField('f3')
+
+    expect(store.hasUserEdits.value).toBe(false)
+  })
+})
+
+describe('跨解析不以 id 合併', () => {
+  /**
+   * 後端的 id 是「洗牌之後的位置序號」：server.py 先 random.shuffle(picked)
+   * 再用 f"f{i+1}" 編號，所以同一份文件重跑一次，f1 指向的欄位完全不同。
+   * 實測兩次解析 18 個欄位，label 對得起來的是 0 個。
+   *
+   * 這支測試鎖住的是：discardExtraction() 必須真的把 drafts 清乾淨。
+   * 如果有人為了「保留使用者的工作」把 drafts.clear() 拿掉，
+   * 使用者對「品名」的修改就會套到重跑後叫「鈉」的欄位上 —— 靜默的資料汙染。
+   */
+  it('重跑後同一個 id 換成別的欄位，不會沿用舊的草稿值', () => {
+    const store = seed()
+    store.setValue('f1', '使用者填的品名')
+    expect(store.drafts.get('f1')?.value).toBe('使用者填的品名')
+
+    store.discardExtraction()
+
+    // 第二次解析：f1 這個 id 現在是「鈉」，不是「品名」
+    store.applyField(field({ id: 'f1', label: '鈉', group: '營養標示', value: '820 毫克' }))
+
+    expect(store.fields.get('f1')?.label).toBe('鈉')
+    expect(store.drafts.get('f1')?.value).toBe('820 毫克')
+    expect(store.drafts.get('f1')?.touched).toBe(false)
+    expect(store.hasUserEdits.value).toBe(false)
   })
 })

@@ -8,6 +8,14 @@ import type {
 } from '@/types/extraction'
 import type { ReviewStore } from './useReviewStore'
 
+/**
+ * retry() 的結果。
+ *
+ * 刻意不是 boolean：`unavailable` 與 `needs-confirm` 在畫面上要走完全不同的路
+ * （引導重新上傳 vs 跳確認對話框），用 false 表示會把兩者混在一起。
+ */
+export type RetryOutcome = 'started' | 'needs-confirm' | 'unavailable'
+
 export interface UseExtractionOptions {
   /** 傳輸層。預設是 fetch + ReadableStream，測試塞假的進來 */
   transport?: ExtractionTransport
@@ -78,15 +86,24 @@ export function useExtraction(store: ReviewStore, options: UseExtractionOptions 
    * 同一份文件重跑一次解析。
    * 不重傳檔案 —— document_id 還在，重傳只是讓使用者多等一次。
    *
-   * 但 document_id 已經失效時（後端重啟過，extract 回 404）重跑一百次都是 404，
-   * 所以擋在這裡，讓畫面改成引導重新上傳。
+   * 三種結果：
+   *
+   * - `unavailable`：沒有 document，或 document_id 已失效（後端重啟過，extract 回 404）。
+   *   重跑一百次都是 404，所以擋在這裡，讓畫面改成引導重新上傳。
+   *
+   * - `needs-confirm`：使用者已經改過或確認過欄位。重新解析會把這些全部丟掉
+   *   （後端的 id 跨解析不穩定，沒辦法合併，見 useReviewStore.applyField 的註解），
+   *   所以不自作主張，交給呼叫端去問。確認後再帶 `{ discardEdits: true }` 呼叫一次。
+   *
+   * - `started`：已經開始重跑。
    */
-  function retry(): boolean {
+  function retry({ discardEdits = false }: { discardEdits?: boolean } = {}): RetryOutcome {
     const documentId = store.document.value?.document_id
-    if (!documentId || !store.canRetry.value) return false
-    store.resetExtraction()
+    if (!documentId || !store.canRetry.value) return 'unavailable'
+    if (store.hasUserEdits.value && !discardEdits) return 'needs-confirm'
+    store.discardExtraction()
     listen(documentId)
-    return true
+    return 'started'
   }
 
   /**
