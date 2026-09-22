@@ -47,7 +47,8 @@
 | `eventsource`         | 傳輸層改用 `fetch` ＋ `ReadableStream`，SSE 分幀自己寫（[理由](ARCHITECTURE.md#srcapifetchstreamtransportts--預設傳輸層)） |
 | `happy-dom` / `jsdom` | 同上，不再需要模擬 DOM                                                                                                     |
 
-`@tanstack/vue-virtual`（虛擬捲動）尚未決定，打算先用 `?field_count=300` 實測是否真的卡，再決定要不要為此犧牲瀏覽器原生的 Ctrl+F 搜尋
+`@tanstack/vue-virtual`（虛擬捲動）**確定不裝**。實測 300 列在 4 倍 CPU 降速下按鍵 p95 只有 3.8ms、捲動不掉幀，
+不值得為此犧牲瀏覽器原生的 Ctrl+F，也省下可變高度虛擬化的複雜度（[log/07](log/07-300欄位渲染量測.md)）
 
 ---
 

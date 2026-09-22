@@ -21,9 +21,9 @@
 | SSE 傳輸層               | ✅ 完成   | `fetch` ＋ `ReadableStream`，可注入介面、依 HTTP 狀態碼分流（[說明](ARCHITECTURE.md#srcapifetchstreamtransportts--預設傳輸層)）                                |
 | 狀態與 composable        | ✅ 完成   | `useReviewStore` / `useExtraction` / `useFieldFilters`（[依賴圖](ARCHITECTURE.md#store-依賴關係)）                                                             |
 | 上傳 / 解析中 / 審核介面 | 🟡 唯讀   | `App.vue` 已接上串流顯示、分組、進度、中止、重試與錯誤分流；編輯、確認、挑候選、送出尚未接上，且刻意零樣式（[元件規劃](ARCHITECTURE.md#元件配置規劃尚未建立)） |
-| 防護性測試               | ✅ 52 支  | SSE 分幀、HTTP 狀態分流、中止、解析中途失敗、必填缺漏擋送出、候選答案挑選、重設、重新解析的資料保護（[清單](ARCHITECTURE.md#測試防的是什麼)）                  |
+| 防護性測試               | ✅ 52 支  | SSE 分幀、HTTP 狀態分流、中止、解析中途失敗、必填缺漏擋送出、候選答案挑選、重設、重新解析的資料保護（[清單](ARCHITECTURE.md#測試防的是什麼)）            |
 | Docker 整合              | ✅ 完成   | 根目錄 `docker-compose.yml` ＋ `frontend/Dockerfile`（多階段 build → nginx），冷啟 20 秒，已實跑驗證                                                           |
-| 虛擬捲動                 | ⬜ 未決定 | 先用 `?field_count=300` 量測是否真的卡                                                                                                                         |
+| 虛擬捲動                 | ✅ 不做   | 已量測：300 列在 4 倍 CPU 降速下按鍵 p95 3.8ms、捲動不掉幀（[log/07](log/07-300欄位渲染量測.md)）                                                              |
 | 無障礙、跨裝置           | ⬜ 未開始 | 題目列為加分項                                                                                                                                                 |
 | 題目指定的 README 問答   | ⬜ 未撰寫 | 九項，見文末清單                                                                                                                                               |
 
@@ -163,7 +163,7 @@ git clone . ../verify && cd ../verify && docker compose up --build
 | 04  | 專案骨架        | 工具鏈五項檢查全綠                                    | 指定範圍     | [詳細](log/04-骨架建置與驗證.md)                                 |
 | 05  | 執行期依賴      | 只留 `vue`                                            | 無           | —                                                                |
 | 06  | Docker 整合     | compose 移至根目錄，前端 build 產物交給 nginx，不反代 | **選定方案** | [詳細](log/06-docker-整合.md)                                    |
-| 07  | 虛擬捲動        | 延後，需先用 300 欄位實測                             | 無           | —                                                                |
+| 07  | 虛擬捲動        | **不做**，實測 300 列不卡，保住 Ctrl+F                | 無           | [詳細](log/07-300欄位渲染量測.md)                                |
 | 08  | SSE 傳輸方式    | `EventSource` → `fetch` ＋ `ReadableStream`           | **指定方向** | [詳細](ARCHITECTURE.md#srcapifetchstreamtransportts--預設傳輸層) |
 | 09  | 後端位址設定    | 預設值移入 `.env`，程式碼不做執行期判斷               | **指出矛盾** | [詳細](ARCHITECTURE.md#srcapihttpts--位址與錯誤型別)             |
 
