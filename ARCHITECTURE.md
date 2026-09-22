@@ -10,15 +10,15 @@
 
 ## 目前的實作範圍
 
-| 層                                      | 狀態                                                                                                                 |
-| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| 型別（`src/types/`）                    | ✅ 已建立                                                                                                            |
-| 傳輸層（`src/api/`）                    | ✅ 已建立，`fetch` ＋ `ReadableStream`                                                                               |
-| 狀態與 composable（`src/composables/`） | ✅ 已建立                                                                                                            |
-| 測試                                    | ✅ 65 支，涵蓋 SSE 分幀、HTTP 狀態分流、分組順序、送出阻擋、中止、中途失敗、重設、重新解析的資料保護、送出、樣式設定 |
-| 元件（`src/components/`）               | ⬜ 尚未拆分，本文件的「元件配置」章節是規劃                                                                          |
-| 容器化                                  | ✅ 已建立並實跑驗證（[log/06](log/06-docker-整合.md)）                                                               |
-| 切版示意                                | ✅ 四張設計稿，見 [README 的介面設計](README.md#介面設計) 與 `log/design/`                                           |
+| 層                                      | 狀態                                                                                                                                 |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| 型別（`src/types/`）                    | ✅ 已建立                                                                                                                            |
+| 傳輸層（`src/api/`）                    | ✅ 已建立，`fetch` ＋ `ReadableStream`                                                                                               |
+| 狀態與 composable（`src/composables/`） | ✅ 已建立                                                                                                                            |
+| 測試                                    | ✅ 77 支，涵蓋 SSE 分幀、HTTP 狀態分流、分組順序、送出阻擋、中止、中途失敗、重設、重新解析的資料保護、送出、樣式設定、一列的四種狀態 |
+| 元件（`src/components/`）               | 🟡 一列的四個已建好，版面骨架與流程元件仍是規劃                                                                                      |
+| 容器化                                  | ✅ 已建立並實跑驗證（[log/06](log/06-docker-整合.md)）                                                                               |
+| 切版示意                                | ✅ 四張設計稿，見 [README 的介面設計](README.md#介面設計) 與 `log/design/`                                                           |
 
 `src/App.vue` 已把上傳與串流顯示接起來，但刻意停在**原生 HTML 元素、零樣式**的狀態：
 這個階段要驗證的是資料有沒有正確地邊串邊進畫面，不是版面。編輯、確認、挑候選、送出
@@ -458,27 +458,44 @@ flowchart TD
 
 ---
 
-## 元件配置（規劃，尚未建立）
+## 元件配置
+
+`review/` 的一列已經建好（Phase 2），其餘仍是規劃：
 
 ```
 src/components/
   upload/
-    FileDropZone.vue
+    FileDropZone.vue          ⬜ 規劃
   parse/
-    ParseProgressBar.vue
-    ParseErrorBanner.vue
-    AbortConfirmDialog.vue
+    ParseProgressBar.vue      ⬜ 規劃
+    ParseErrorBanner.vue      ⬜ 規劃
+    AbortConfirmDialog.vue    ⬜ 規劃
   review/
-    ReviewLayout.vue
-    GroupNav.vue
-    TriageBar.vue
-    FieldGroupSection.vue
-    FieldRow.vue
-    FieldValueEditor.vue
-    CandidatePicker.vue
-    ConfidenceMark.vue
-    SubmitGuard.vue
+    ReviewLayout.vue          ⬜ 規劃
+    GroupNav.vue              ⬜ 規劃
+    TriageBar.vue             ⬜ 規劃
+    FieldGroupSection.vue     ⬜ 規劃
+    fieldStatusView.ts        ✅ 狀態 → 色條／標註／說明，只有一份
+    FieldRow.vue              ✅
+    FieldValueEditor.vue      ✅
+    CandidatePicker.vue       ✅
+    ConfidenceMark.vue        ✅
+    SubmitGuard.vue           ⬜ 規劃
 ```
+
+### 已建好的四個
+
+`fieldStatusView.ts` 是狀態的**畫面表現**只有一份的地方 —— `resolveStatus()` 決定一列是什麼
+狀態，它決定那個狀態長什麼樣子。散到各元件裡就會出現「色條是紅的、旁邊卻寫把握度低」
+
+`FieldValueEditor` **永遠渲染一個真的 `<input>`**，安靜的列只是把外框與底色拿掉。
+考慮過「純文字、點一下才變輸入框」，沒採用：那種做法鍵盤到不了，Tab 會跳過八成的欄位。
+外觀一樣，但一個能用鍵盤審完整份文件、一個不能。附帶好處是元件不需要自己的 editing 狀態
+
+`CandidatePicker` 的「都不對，自己填」透過 `defineExpose({ focus })` 把游標送進輸入框。
+沒有這顆，使用者會以為只能從系統給的三個裡面挑
+
+`ConfidenceMark` 是 `aria-hidden` 的 —— 同一件事右邊的文字標註已經說過，讀螢幕器再念一次是噪音
 
 | 元件                 | 目的                                                   | 拿掉會怎樣                                        |
 | -------------------- | ------------------------------------------------------ | ------------------------------------------------- |
@@ -536,6 +553,11 @@ src/components/
 | Tailwind 有生效且 token 接得上 utility     | 有人把 `@import` 註解掉，整份樣式靜默失效                |
 | `bg-blue-500` 不產生任何規則               | 有人把內建調色盤加回來，顏色就會被拿去標不需要處理的東西 |
 | `#app` 的 `min-width` 是 1120px            | 有人拿掉它，窄螢幕會變成錯位而不是橫向捲動               |
+| 安靜的列沒有色條、沒有確認鈕               | 有人把顏色用在不需要處理的列上，整個判斷就破功           |
+| 把握度的數字只進 title，畫面上看不到       | 有人把百分比放回畫面                                     |
+| 安靜的列也對得上 label、進得了 Tab 順序    | 有人改成「點一下才變輸入框」，鍵盤就跳過八成欄位         |
+| 候選是可按的按鈕，且有「都不對」的出口     | 有人把候選畫成不可按的標籤                               |
+| `FieldRow` 沒有 import 任何 composable     | 違反的話 log/07 的效能數字與「不做虛擬捲動」都不成立     |
 | 事件被逐字元切開仍能還原                   | 有人拿掉 `sseParser` 的 buffer，改成每個 chunk 各自解析  |
 | `\r\n` 被切在 `\r` 與 `\n` 之間不誤分幀    | 有人把換行正規化提前到 buffer 尾端也一起做               |
 | 多位元組字元跨 chunk 不變問號              | 有人拿掉 `decoder.decode(value, { stream: true })`       |

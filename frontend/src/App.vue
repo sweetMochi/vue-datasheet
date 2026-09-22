@@ -2,18 +2,17 @@
 /**
  * 上傳一份檔案，把 SSE 推回來的欄位邊收邊顯示。
  *
- * 這個階段刻意只用原生 HTML 元素、不寫任何樣式：現在要驗證的是
- * 「資料有沒有正確地邊串邊進畫面」，不是版面長什麼樣子。
- * 元件拆分與切版在下一階段，見 ARCHITECTURE.md 的「元件配置」。
+ * 上傳與進度這兩段還是原生 HTML、沒有樣式 —— 它們的版面留到下一階段。
+ * 欄位清單已經換成 FieldRow，見 ARCHITECTURE.md 的「元件配置」。
  *
- * 編輯、確認、挑候選、送出也留到下一階段 —— store 已經有這些動作，
- * 這裡先只讀不寫。
+ * 欄位的編輯、確認、挑候選、重設已經接上（Phase 2）。版面骨架、群組導覽、
+ * 篩選與送出還沒，留到下一階段，所以這裡仍然是一條很長的清單。
  */
 import { computed, reactive, ref } from 'vue'
+import FieldRow from '@/components/review/FieldRow.vue'
 import { useReviewStore } from '@/composables/useReviewStore'
 import { useExtraction } from '@/composables/useExtraction'
 import type { ExtractOptions } from '@/types/extraction'
-import type { FieldStatus } from '@/types/field'
 
 const store = useReviewStore()
 
@@ -41,13 +40,6 @@ function submitUpload() {
 
 /** 收到的欄位數。串流途中它會小於 progress.total，這個差距就是進度本身 */
 const received = computed(() => store.order.value.length)
-
-const STATUS_TEXT: Record<FieldStatus, string> = {
-  missing: '必填未填',
-  multiCandidate: '多個候選',
-  lowConfidence: '把握度低',
-  ok: '',
-}
 
 /**
  * 「重新解析」的確認。
@@ -177,45 +169,19 @@ const PHASE_TEXT: Record<string, string> = {
           </template>
         </h3>
 
-        <table border="1">
-          <thead>
-            <tr>
-              <th>欄位</th>
-              <th>值</th>
-              <th>把握度</th>
-              <th>頁</th>
-              <th>狀態</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="id in ids" :key="id">
-              <td>
-                {{ store.fields.get(id)!.label }}
-                <abbr v-if="store.fields.get(id)!.required" title="法規必填">*</abbr>
-              </td>
-              <td>
-                <template v-if="store.drafts.get(id)!.value">
-                  {{ store.drafts.get(id)!.value }}
-                </template>
-                <em v-else>無資料</em>
-                <!-- 候選先照實列出，挑選的互動留到下一階段 -->
-                <ul v-if="store.fields.get(id)!.candidates">
-                  <li v-for="candidate in store.fields.get(id)!.candidates" :key="candidate">
-                    {{ candidate }}
-                  </li>
-                </ul>
-              </td>
-              <td>
-                <template v-if="store.fields.get(id)!.confidence !== null">
-                  {{ store.fields.get(id)!.confidence!.toFixed(2) }}
-                </template>
-                <template v-else>—</template>
-              </td>
-              <td>P{{ store.fields.get(id)!.page }}</td>
-              <td>{{ STATUS_TEXT[store.statusOf(id)] }}</td>
-            </tr>
-          </tbody>
-        </table>
+        <div class="border-line overflow-hidden rounded-md border">
+          <FieldRow
+            v-for="id in ids"
+            :key="id"
+            :field="store.fields.get(id)!"
+            :draft="store.drafts.get(id)!"
+            :status="store.statusOf(id)"
+            @update:value="store.setValue(id, $event)"
+            @confirm="store.confirm(id)"
+            @choose="store.chooseCandidate(id, $event)"
+            @reset="store.resetField(id)"
+          />
+        </div>
       </section>
     </section>
   </main>
