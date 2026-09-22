@@ -28,9 +28,13 @@ export interface DoneEvent {
   field_count: number
 }
 
-/** 上傳成功後後端回傳的文件 */
+/** 上傳成功後的文件 */
 export interface UploadedDocument {
   document_id: string
+  /**
+   * 顯示用的檔名，來自本地的 `File.name`，**不是** API 回傳的值。
+   * 理由見 api/uploadDocument.ts
+   */
   filename: string
 }
 

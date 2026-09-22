@@ -86,7 +86,12 @@ const PHASE_TEXT: Record<string, string> = {
     <section>
       <h2>一、選擇檔案</h2>
       <p>
-        <input type="file" accept="application/pdf,.pdf" @change="pickFile" />
+        <!--
+          刻意不設 accept：題目寫明「隨便丟什麼檔案都可以，後端不會真的去解析內容」，
+          而且真實的檢驗報告很多是掃描的圖片，限死 PDF 反而不符情境。
+          真實產品這裡應該要限制型別與大小，並在前端先擋掉明顯不合的檔案
+        -->
+        <input type="file" @change="pickFile" />
         <button type="button" :disabled="!file || store.isStreaming.value" @click="submitUpload">
           上傳並解析
         </button>

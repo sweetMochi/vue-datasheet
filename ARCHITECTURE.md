@@ -15,7 +15,7 @@
 | 型別（`src/types/`）                    | ✅ 已建立                                                                                                  |
 | 傳輸層（`src/api/`）                    | ✅ 已建立，`fetch` ＋ `ReadableStream`                                                                     |
 | 狀態與 composable（`src/composables/`） | ✅ 已建立                                                                                                  |
-| 測試                                    | ✅ 56 支，涵蓋 SSE 分幀、HTTP 狀態分流、分組順序、送出阻擋、中止、中途失敗、重設、重新解析的資料保護、送出 |
+| 測試                                    | ✅ 61 支，涵蓋 SSE 分幀、HTTP 狀態分流、分組順序、送出阻擋、中止、中途失敗、重設、重新解析的資料保護、送出 |
 | 元件（`src/components/`）               | ⬜ 尚未拆分，本文件的「元件配置」章節是規劃                                                                |
 | 容器化                                  | ✅ 已建立並實跑驗證（[log/06](log/06-docker-整合.md)）                                                     |
 | 切版示意                                | ✅ 四張設計稿，見 [README 的介面設計](README.md#介面設計) 與 `log/design/`                                 |
@@ -228,6 +228,11 @@ type ExtractionTransport = (
 刻意不順便開始解析，理由見上面狀態機的第三點
 
 `AbortError` 直接往外丟不包裝，讓呼叫端能分辨「使用者取消」與「真的失敗」
+
+**回傳的 `filename` 用本地的 `File.name`，不是 API 回傳的值**。後端那個只是把我們剛送上去的
+檔名原封不動回傳，是一趟編碼往返之後的回音；同一份資訊本地就有，少繞一圈。
+實務上那一圈確實會壞：[log/06](log/06-docker-整合.md) 實測中文檔名會被 multipart 解析層
+當 latin-1 解成亂碼
 
 ---
 
@@ -525,6 +530,7 @@ src/components/
 | 已送出不是死路，可以回到審核               | 有人拿掉 `backToReview`                                 |
 | 候選優先於低把握                           | 有人調換 `resolveStatus` 的判斷順序                     |
 | 上傳失敗給得出訊息                         | 有人吞掉 `uploadDocument` 的例外                        |
+| 檔名用本地的 `File.name`                   | 有人為了「忠於 API」改回讀回傳值，中文檔名就變亂碼      |
 | 事件被逐字元切開仍能還原                   | 有人拿掉 `sseParser` 的 buffer，改成每個 chunk 各自解析 |
 | `\r\n` 被切在 `\r` 與 `\n` 之間不誤分幀    | 有人把換行正規化提前到 buffer 尾端也一起做              |
 | 多位元組字元跨 chunk 不變問號              | 有人拿掉 `decoder.decode(value, { stream: true })`      |

@@ -67,6 +67,26 @@
 | `.editorconfig`             | 編碼、換行、縮排                 | 根目錄一份管全部，含 `mock-backend/` 的 Python   |
 | `.gitignore`                | 忽略清單                         | 根目錄一份，`frontend/` 不另外放                 |
 
+### 設計 token 走 Tailwind 的 `@theme`
+
+顏色、字級這些 token 宣告在 `src/style.css` 的 `@theme` 區塊裡：
+
+```css
+@import 'tailwindcss';
+
+@theme {
+  --color-danger: #9e3226; /* 必填缺漏 */
+  --color-caution: #8a5a00; /* 把握度低 */
+  --color-choose: #35578a; /* 要你挑一個 */
+}
+```
+
+**`@theme` 宣告的就是 CSS 自訂屬性**，沒有 JS 設定檔、沒有額外建置步驟。
+它同時做兩件事：`var(--color-danger)` 可用，而且 `bg-danger` / `text-danger` 這些 utility 也可用
+
+考慮過改在 `:root` 手寫變數、不走 `@theme`。不採用的理由是 Tailwind 不認得那些變數，
+每個地方都要寫成 `text-[var(--ink)]` 這種 arbitrary value，等於題目指定的 Tailwind 只用了一半
+
 ### 為什麼有兩份 `.prettierrc.json`
 
 `frontend/.prettierrc.json` 帶 `prettier-plugin-tailwindcss`（排序 class），根目錄那份沒有
