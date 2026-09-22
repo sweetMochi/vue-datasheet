@@ -1,15 +1,11 @@
 /**
- * 後端位址。
+ * 後端位址。build-time 的靜態值，Vite 打包時字面替換進 bundle。
  *
- * 留成環境變數而不是寫死，但理由不是 docker compose 的服務名 —— 發出這些請求的是
- * 使用者的瀏覽器，它跑在主機上、不在 compose 網路裡，解析不到 api 這個名字。
- * 前端就算也進了 compose，這裡仍然是 http://localhost:8000；想用服務名連後端
- * 得改走 Vite proxy 由容器內轉發，而不是改這個常數。
- *
- * 真正會換掉它的情況：8000 被佔走而改了 compose 的 ports、從區域網路上的另一台裝置
- * 連 `vite --host` 開出來的頁面、部署到 localhost 以外的位址。
+ * 預設值在 frontend/.env，個人覆寫寫 .env.local。
+ * 為什麼是環境變數、為什麼不能填 compose 的服務名，見
+ * ARCHITECTURE.md 的「src/api/http.ts — 位址與錯誤型別」。
  */
-const BASE = (import.meta.env.VITE_API_BASE ?? 'http://localhost:8000').replace(/\/$/, '')
+const BASE = import.meta.env.VITE_API_BASE
 
 export function apiUrl(path: string, query?: Record<string, string | number | undefined>): string {
   const url = new URL(BASE + path)
