@@ -198,3 +198,65 @@ describe('跨解析不以 id 合併', () => {
     expect(store.hasUserEdits.value).toBe(false)
   })
 })
+
+describe('送出', () => {
+  /**
+   * 資料送出給後端的規格不明確，送出只推進狀態並把 submitPayload 交給畫面顯示。
+   * 決定的理由見 log/08
+   */
+  it('必填補齊後才送得出去，payload 帶的是使用者的值', () => {
+    const store = seed()
+    expect(store.canSubmit.value).toBe(false)
+
+    store.setValue('f1', '經典原味火腿')
+    store.chooseCandidate('f6', '2026/05/30')
+    expect(store.canSubmit.value).toBe(true)
+
+    store.markSubmitted()
+
+    expect(store.phase.value).toBe('submitted')
+    const payload = store.submitPayload.value
+    expect(payload).toHaveLength(6)
+    expect(payload.find((f) => f.id === 'f1')).toMatchObject({
+      label: '品名',
+      value: '經典原味火腿',
+      edited: true,
+    })
+    expect(payload.find((f) => f.id === 'f6')).toMatchObject({
+      value: '2026/05/30',
+      confirmed: true,
+      edited: true,
+    })
+  })
+
+  it('送出後 payload 仍讀得到 —— 畫面要拿它來顯示', () => {
+    const store = seed()
+    store.setValue('f1', '經典原味火腿')
+    store.markSubmitted()
+
+    expect(store.submitPayload.value).toHaveLength(6)
+    expect(store.order.value).toHaveLength(6)
+  })
+
+  it('已送出不是死路，可以回到審核繼續改', () => {
+    const store = seed()
+    store.setValue('f1', '經典原味火腿')
+    store.markSubmitted()
+
+    store.backToReview()
+
+    expect(store.phase.value).toBe('review')
+    // 回去之後欄位與草稿原封不動
+    expect(store.drafts.get('f1')?.value).toBe('經典原味火腿')
+    expect(store.order.value).toHaveLength(6)
+  })
+
+  it('不在已送出狀態時 backToReview 不做事', () => {
+    const store = seed()
+    expect(store.phase.value).toBe('parsing')
+
+    store.backToReview()
+
+    expect(store.phase.value).toBe('parsing')
+  })
+})

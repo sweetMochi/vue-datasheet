@@ -21,7 +21,7 @@
 | SSE 傳輸層               | ✅ 完成   | `fetch` ＋ `ReadableStream`，可注入介面、依 HTTP 狀態碼分流（[說明](ARCHITECTURE.md#srcapifetchstreamtransportts--預設傳輸層)）                                |
 | 狀態與 composable        | ✅ 完成   | `useReviewStore` / `useExtraction` / `useFieldFilters`（[依賴圖](ARCHITECTURE.md#store-依賴關係)）                                                             |
 | 上傳 / 解析中 / 審核介面 | 🟡 唯讀   | `App.vue` 已接上串流顯示、分組、進度、中止、重試與錯誤分流；編輯、確認、挑候選、送出尚未接上，且刻意零樣式（[元件規劃](ARCHITECTURE.md#元件配置規劃尚未建立)） |
-| 防護性測試               | ✅ 52 支  | SSE 分幀、HTTP 狀態分流、中止、解析中途失敗、必填缺漏擋送出、候選答案挑選、重設、重新解析的資料保護（[清單](ARCHITECTURE.md#測試防的是什麼)）            |
+| 防護性測試               | ✅ 56 支  | SSE 分幀、HTTP 狀態分流、中止、解析中途失敗、必填缺漏擋送出、候選答案挑選、重設、重新解析的資料保護、送出（[清單](ARCHITECTURE.md#測試防的是什麼)）            |
 | Docker 整合              | ✅ 完成   | 根目錄 `docker-compose.yml` ＋ `frontend/Dockerfile`（多階段 build → nginx），冷啟 20 秒，已實跑驗證                                                           |
 | 虛擬捲動                 | ✅ 不做   | 已量測：300 列在 4 倍 CPU 降速下按鍵 p95 3.8ms、捲動不掉幀（[log/07](log/07-300欄位渲染量測.md)）                                                              |
 | 無障礙、跨裝置           | ⬜ 未開始 | 題目列為加分項                                                                                                                                                 |
@@ -166,6 +166,7 @@ git clone . ../verify && cd ../verify && docker compose up --build
 | 07  | 虛擬捲動        | **不做**，實測 300 列不卡，保住 Ctrl+F                | 無           | [詳細](log/07-300欄位渲染量測.md)                                |
 | 08  | SSE 傳輸方式    | `EventSource` → `fetch` ＋ `ReadableStream`           | **指定方向** | [詳細](ARCHITECTURE.md#srcapifetchstreamtransportts--預設傳輸層) |
 | 09  | 後端位址設定    | 預設值移入 `.env`，程式碼不做執行期判斷               | **指出矛盾** | [詳細](ARCHITECTURE.md#srcapihttpts--位址與錯誤型別)             |
+| 10  | 送出規格不明確  | 做不猜規格的版本：完整驗證後顯示 payload，不打 API    | **選定方案** | [詳細](log/08-資料送出規格不明確.md)                             |
 
 ### 人工介入的三處修正
 
@@ -221,3 +222,4 @@ AI 給這個環境變數寫的理由是「進 docker compose 之後服務名會�
 
 - 低把握度的界線 `0.7`，推估應由後台設置並由後端提供
 - 顯示的欄位 `ID` 並非唯一值而是序號，在使用者中斷後重新解析的過程會發生欄位衝突
+- **資料送出給後端的規格不明確**。mock 後端只有上傳、解析、健康檢查三支，但需求明講必填未填「不能就這樣送出去」——真實系統一定有接收端，只是這份題目沒給規格。目前做法是不對規格做假設：前端完整驗證後顯示 payload 並說明未實際送出（[log/08](log/08-資料送出規格不明確.md)）
