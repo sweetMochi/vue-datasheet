@@ -87,6 +87,19 @@
 考慮過改在 `:root` 手寫變數、不走 `@theme`。不採用的理由是 Tailwind 不認得那些變數，
 每個地方都要寫成 `text-[var(--ink)]` 這種 arbitrary value，等於題目指定的 Tailwind 只用了一半
 
+**內建調色盤整個清掉**（`--color-*: initial`），只留下命名過的那十幾個：
+
+這不是潔癖。整份設計的判斷是「顏色只給『要你動手』這一件事，其餘八成的列完全安靜」。
+留著 `blue-500`、`green-400` 這些，遲早有人拿去標一個不需要使用者處理的東西，那個判斷就破功了。
+要用別的顏色必須先在 `@theme` 裡命名，也就必須先說出它代表什麼狀態
+
+有一支測試守著這件事：`bg-blue-500` 必須不產生任何規則
+
+**字體用系統堆疊，不載 Google Fonts。** 設計稿是用 Noto Sans TC 畫的，但 CJK 字型檔
+就算子集化也是好幾百 KB，為了一份「畫面不用做得漂亮」的作業付這個代價不划算，
+而且會讓容器裡的頁面依賴外部網路。數字要對齊時用 Tailwind 內建的 `tabular-nums`，
+那比換字型有效得多
+
 ### 為什麼有兩份 `.prettierrc.json`
 
 `frontend/.prettierrc.json` 帶 `prettier-plugin-tailwindcss`（排序 class），根目錄那份沒有

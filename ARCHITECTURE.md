@@ -10,22 +10,24 @@
 
 ## 目前的實作範圍
 
-| 層                                      | 狀態                                                                                                       |
-| --------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| 型別（`src/types/`）                    | ✅ 已建立                                                                                                  |
-| 傳輸層（`src/api/`）                    | ✅ 已建立，`fetch` ＋ `ReadableStream`                                                                     |
-| 狀態與 composable（`src/composables/`） | ✅ 已建立                                                                                                  |
-| 測試                                    | ✅ 61 支，涵蓋 SSE 分幀、HTTP 狀態分流、分組順序、送出阻擋、中止、中途失敗、重設、重新解析的資料保護、送出 |
-| 元件（`src/components/`）               | ⬜ 尚未拆分，本文件的「元件配置」章節是規劃                                                                |
-| 容器化                                  | ✅ 已建立並實跑驗證（[log/06](log/06-docker-整合.md)）                                                     |
-| 切版示意                                | ✅ 四張設計稿，見 [README 的介面設計](README.md#介面設計) 與 `log/design/`                                 |
+| 層                                      | 狀態                                                                                                                 |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| 型別（`src/types/`）                    | ✅ 已建立                                                                                                            |
+| 傳輸層（`src/api/`）                    | ✅ 已建立，`fetch` ＋ `ReadableStream`                                                                               |
+| 狀態與 composable（`src/composables/`） | ✅ 已建立                                                                                                            |
+| 測試                                    | ✅ 65 支，涵蓋 SSE 分幀、HTTP 狀態分流、分組順序、送出阻擋、中止、中途失敗、重設、重新解析的資料保護、送出、樣式設定 |
+| 元件（`src/components/`）               | ⬜ 尚未拆分，本文件的「元件配置」章節是規劃                                                                          |
+| 容器化                                  | ✅ 已建立並實跑驗證（[log/06](log/06-docker-整合.md)）                                                               |
+| 切版示意                                | ✅ 四張設計稿，見 [README 的介面設計](README.md#介面設計) 與 `log/design/`                                           |
 
 `src/App.vue` 已把上傳與串流顯示接起來，但刻意停在**原生 HTML 元素、零樣式**的狀態：
 這個階段要驗證的是資料有沒有正確地邊串邊進畫面，不是版面。編輯、確認、挑候選、送出
 都還沒接上（store 已經有這些動作），元件拆分與切版一併留到下一階段
 
-同理，`src/style.css` 暫時把 `@import 'tailwindcss'` 註解掉 —— preflight 會把 table
-框線與標題級距歸零，在還沒有任何 class 的情況下只會讓資料更難讀
+`src/style.css` 的 Tailwind 已經打開，`@theme` 的設計 token 也都就位（見
+[SCAFFOLD.md](SCAFFOLD.md#設計-token-走-tailwind-的-theme)）。檔案最後有一段標明
+「Phase 3 拆完元件就刪掉」的可讀性補丁 —— preflight 會把 table 框線與標題級距歸零，
+那段只是讓還沒有 class 的原生 HTML 在切版完成前仍然讀得懂，不是設計的一部分
 
 ---
 
@@ -510,34 +512,37 @@ src/components/
 
 題目寫明「看的是它防得住什麼」，所以每支測試都對應一個具體的改壞情境
 
-| 測試                                       | 防住什麼                                                |
-| ------------------------------------------ | ------------------------------------------------------- |
-| 亂序欄位分組後組內維持到達順序             | 有人把 `order` 改成依 `id` 或字母排序                   |
-| 群組順序照 `KNOWN_GROUPS` 而非首次出現     | 有人拿掉 `groupOrder()` 直接用 Map 插入順序             |
-| 必填沒填 → `canSubmit` 為 false            | 有人把阻擋條件改成「已確認數 === 總數」                 |
-| 只填空白不算填了                           | 有人把檢查寫成 `value !== ''` 忘了 `trim()`             |
-| 高把握度欄位不擋送出                       | 同上，反向防止變成「按 120 次確認」                     |
-| `resetField` 回到後端原值                  | 有人把 `fields` 與 `drafts` 合併成一個物件              |
-| `error` 事件不清空已收欄位                 | 有人把錯誤處理寫成回到 `idle`                           |
-| `abort()` 關閉連線且 phase 轉 `aborted`    | 有人在中止時清空 `fields`                               |
-| scope 結束自動斷線                         | 有人拿掉 `onScopeDispose`                               |
-| 已結束後再中止不改狀態                     | 有人在 `abort()` 裡無條件寫 `phase`                     |
-| `retry()` 沿用 `document_id`               | 有人把重試寫成重新上傳                                  |
-| 有修改時 `retry()` 先要求確認              | 有人把確認拿掉，讓使用者的工作靜默消失                  |
-| 只按過確認也算動過手                       | 有人把 `hasUserEdits` 改成只看 `touched`                |
-| 重跑後同一個 id 不沿用舊草稿               | 有人為了「保留使用者的工作」拿掉 `drafts.clear()`       |
-| 必填補齊後才送得出去，payload 帶使用者的值 | 有人把 payload 改成讀 `fields` 而不是 `drafts`          |
-| 已送出不是死路，可以回到審核               | 有人拿掉 `backToReview`                                 |
-| 候選優先於低把握                           | 有人調換 `resolveStatus` 的判斷順序                     |
-| 上傳失敗給得出訊息                         | 有人吞掉 `uploadDocument` 的例外                        |
-| 檔名用本地的 `File.name`                   | 有人為了「忠於 API」改回讀回傳值，中文檔名就變亂碼      |
-| 事件被逐字元切開仍能還原                   | 有人拿掉 `sseParser` 的 buffer，改成每個 chunk 各自解析 |
-| `\r\n` 被切在 `\r` 與 `\n` 之間不誤分幀    | 有人把換行正規化提前到 buffer 尾端也一起做              |
-| 多位元組字元跨 chunk 不變問號              | 有人拿掉 `decoder.decode(value, { stream: true })`      |
-| 404 → `DOCUMENT_EXPIRED` 且擋住重試        | 有人把所有 HTTP 失敗合併成一種錯誤碼                    |
-| 400 沿用後端 `detail` 原文                 | 有人用固定文案蓋掉後端的參數錯誤說明                    |
-| 沒送 `done` 就結束 → `STREAM_TRUNCATED`    | 有人把「讀完了」當成「成功完成」                        |
-| `close()` 之後不冒出 `CONNECTION_LOST`     | 有人把 `AbortError` 當成連線失敗回報                    |
+| 測試                                       | 防住什麼                                                 |
+| ------------------------------------------ | -------------------------------------------------------- |
+| 亂序欄位分組後組內維持到達順序             | 有人把 `order` 改成依 `id` 或字母排序                    |
+| 群組順序照 `KNOWN_GROUPS` 而非首次出現     | 有人拿掉 `groupOrder()` 直接用 Map 插入順序              |
+| 必填沒填 → `canSubmit` 為 false            | 有人把阻擋條件改成「已確認數 === 總數」                  |
+| 只填空白不算填了                           | 有人把檢查寫成 `value !== ''` 忘了 `trim()`              |
+| 高把握度欄位不擋送出                       | 同上，反向防止變成「按 120 次確認」                      |
+| `resetField` 回到後端原值                  | 有人把 `fields` 與 `drafts` 合併成一個物件               |
+| `error` 事件不清空已收欄位                 | 有人把錯誤處理寫成回到 `idle`                            |
+| `abort()` 關閉連線且 phase 轉 `aborted`    | 有人在中止時清空 `fields`                                |
+| scope 結束自動斷線                         | 有人拿掉 `onScopeDispose`                                |
+| 已結束後再中止不改狀態                     | 有人在 `abort()` 裡無條件寫 `phase`                      |
+| `retry()` 沿用 `document_id`               | 有人把重試寫成重新上傳                                   |
+| 有修改時 `retry()` 先要求確認              | 有人把確認拿掉，讓使用者的工作靜默消失                   |
+| 只按過確認也算動過手                       | 有人把 `hasUserEdits` 改成只看 `touched`                 |
+| 重跑後同一個 id 不沿用舊草稿               | 有人為了「保留使用者的工作」拿掉 `drafts.clear()`        |
+| 必填補齊後才送得出去，payload 帶使用者的值 | 有人把 payload 改成讀 `fields` 而不是 `drafts`           |
+| 已送出不是死路，可以回到審核               | 有人拿掉 `backToReview`                                  |
+| 候選優先於低把握                           | 有人調換 `resolveStatus` 的判斷順序                      |
+| 上傳失敗給得出訊息                         | 有人吞掉 `uploadDocument` 的例外                         |
+| 檔名用本地的 `File.name`                   | 有人為了「忠於 API」改回讀回傳值，中文檔名就變亂碼       |
+| Tailwind 有生效且 token 接得上 utility     | 有人把 `@import` 註解掉，整份樣式靜默失效                |
+| `bg-blue-500` 不產生任何規則               | 有人把內建調色盤加回來，顏色就會被拿去標不需要處理的東西 |
+| `#app` 的 `min-width` 是 1120px            | 有人拿掉它，窄螢幕會變成錯位而不是橫向捲動               |
+| 事件被逐字元切開仍能還原                   | 有人拿掉 `sseParser` 的 buffer，改成每個 chunk 各自解析  |
+| `\r\n` 被切在 `\r` 與 `\n` 之間不誤分幀    | 有人把換行正規化提前到 buffer 尾端也一起做               |
+| 多位元組字元跨 chunk 不變問號              | 有人拿掉 `decoder.decode(value, { stream: true })`       |
+| 404 → `DOCUMENT_EXPIRED` 且擋住重試        | 有人把所有 HTTP 失敗合併成一種錯誤碼                     |
+| 400 沿用後端 `detail` 原文                 | 有人用固定文案蓋掉後端的參數錯誤說明                     |
+| 沒送 `done` 就結束 → `STREAM_TRUNCATED`    | 有人把「讀完了」當成「成功完成」                         |
+| `close()` 之後不冒出 `CONNECTION_LOST`     | 有人把 `AbortError` 當成連線失敗回報                     |
 
 測試跑在真瀏覽器裡（Vitest browser mode ＋ Playwright），所以 `fetch`、`ReadableStream`、`TextDecoder` 都是原生的、`AbortController.abort()` 會真的讓後端收到斷線
 

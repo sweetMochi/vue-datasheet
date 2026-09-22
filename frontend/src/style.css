@@ -1,8 +1,166 @@
+@import 'tailwindcss';
+
 /*
- * 切版尚未開始，這個階段刻意留在瀏覽器預設樣式上。
+ * 設計 token。
  *
- * Tailwind 的 preflight 會把 table 框線、標題級距、清單符號全部歸零，
- * 在還沒有任何 class 的情況下只會讓資料更難讀，所以等進切版階段再放回來：
- *
- * @import 'tailwindcss';
+ * @theme 宣告的就是 CSS 自訂屬性，沒有 JS 設定檔 —— 但 Tailwind 認得它們，
+ * 所以 var(--color-danger) 與 bg-danger 兩種寫法都能用。
+ * 理由見 SCAFFOLD.md 的「設計 token 走 Tailwind 的 @theme」。
  */
+@theme {
+  /*
+   * 先把 Tailwind 內建的調色盤清掉，只留下面這些。
+   *
+   * 這不是潔癖：整份設計的判斷是「顏色只給『要你動手』這一件事，其餘八成的列完全安靜」。
+   * 留著 blue-500、green-400 這些，遲早有人拿去標一個不需要使用者處理的東西，
+   * 那個判斷就破功了。要用別的顏色必須先在這裡命名，也就必須先說出它代表什麼狀態。
+   */
+  --color-*: initial;
+  --color-transparent: transparent;
+  --color-current: currentColor;
+  --color-white: #ffffff;
+
+  /* 中性色：紙面與文字 */
+  --color-ground: #f7f6f3; /* 頁面底色 */
+  --color-surface: #ffffff; /* 列與卡片 */
+  --color-sunken: #fbfaf8; /* 次級區塊、說明欄 */
+  --color-line: #e4e1da; /* 區塊分隔 */
+  --color-line-faint: #efede7; /* 列與列之間 */
+  --color-field: #ddd9d1; /* 輸入框外框 */
+  --color-ink: #1c1b19; /* 主要文字、欄位的值 */
+  --color-muted: #605c55; /* 次要文字、標籤、頁碼 */
+
+  /* 主要動作 */
+  --color-accent: #b4532a;
+  --color-accent-hover: #8c3e1e;
+
+  /*
+   * 三種「要你動手」的狀態。除了這三個，列上不應該出現任何顏色。
+   * 對應 types/field.ts 的 FieldStatus：missing / lowConfidence / multiCandidate
+   */
+  --color-danger: #9e3226; /* 必填但沒抽到 —— 唯一會擋住送出的 */
+  --color-danger-bg: #fbeae6;
+  --color-caution: #8a5a00; /* 把握度低 */
+  --color-caution-bg: #faf0d9;
+  --color-choose: #35578a; /* 有多個候選，要你挑一個 */
+  --color-choose-bg: #e9f0f8;
+
+  /*
+   * 字體用系統堆疊，不載 Google Fonts。
+   *
+   * 設計稿是用 Noto Sans TC 畫的，但 CJK 字型檔就算做過子集化也是好幾百 KB，
+   * 為了一份「畫面不用做得漂亮」的作業付這個代價不划算，而且會讓容器裡的頁面
+   * 依賴外部網路。Windows／macOS 的系統中文字型在這個版面上夠用。
+   *
+   * 數字要對齊時用 Tailwind 內建的 tabular-nums，那比換字型有效得多。
+   */
+  --font-sans:
+    system-ui, -apple-system, 'Segoe UI', 'PingFang TC', 'Microsoft JhengHei', 'Noto Sans TC',
+    sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Mono', 'SF Mono', Consolas, monospace;
+}
+
+@layer base {
+  body {
+    background-color: var(--color-ground);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+  }
+
+  /*
+   * 不做 RWD（理由見 README 的「決定不做什麼」）。
+   *
+   * 但「不做 RWD」不等於「窄螢幕爆版」：給一個最小寬度，窄螢幕就橫向捲動，
+   * 而不是把三欄版面擠成錯位。這兩件事差很多，前者是取捨，後者是 bug。
+   */
+  #app {
+    min-width: 1120px;
+  }
+}
+
+/*
+ * ⚠️ 暫時的可讀性補丁，Phase 3 拆完元件就整段刪掉。
+ *
+ * App.vue 現在還是沒有任何 class 的原生 HTML（唯讀階段，見 ARCHITECTURE.md），
+ * 而 Tailwind 的 preflight 會把 table 框線、標題級距、清單符號全部歸零。
+ * 這段只是讓資料在切版完成前仍然讀得懂，不是設計的一部分 ——
+ * 正式的樣式會跟著元件一起寫成 utility class。
+ */
+@layer base {
+  main {
+    margin-inline: auto;
+    max-width: 72rem;
+    padding: 1.5rem;
+  }
+
+  h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+  }
+
+  h2 {
+    margin-top: 2rem;
+    font-size: 1.125rem;
+    font-weight: 700;
+    border-bottom: 1px solid var(--color-line);
+    padding-bottom: 0.25rem;
+  }
+
+  h3 {
+    margin-top: 1.25rem;
+    font-size: 0.9375rem;
+    font-weight: 700;
+    color: var(--color-muted);
+  }
+
+  p,
+  details {
+    margin-block: 0.5rem;
+  }
+
+  table {
+    width: 100%;
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-line);
+  }
+
+  th,
+  td {
+    border: 1px solid var(--color-line-faint);
+    padding: 0.375rem 0.625rem;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  th {
+    background-color: var(--color-sunken);
+    font-size: 0.8125rem;
+    color: var(--color-muted);
+  }
+
+  ul {
+    list-style: disc;
+    padding-left: 1.25rem;
+  }
+
+  button {
+    border: 1px solid var(--color-field);
+    border-radius: 0.375rem;
+    background-color: var(--color-surface);
+    padding: 0.25rem 0.75rem;
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  input[type='text'],
+  input[type='number'],
+  input[type='search'] {
+    border: 1px solid var(--color-field);
+    border-radius: 0.375rem;
+    padding: 0.25rem 0.5rem;
+  }
+}
