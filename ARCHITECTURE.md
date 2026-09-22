@@ -15,7 +15,7 @@
 | 狀態與 composable（`src/composables/`） | ✅ 已建立                                                                        |
 | 測試                                    | ✅ 45 支，涵蓋 SSE 分幀、HTTP 狀態分流、分組順序、送出阻擋、中止、中途失敗、重設 |
 | 元件（`src/components/`）               | ⬜ 尚未拆分，本文件的「元件配置」章節是規劃                                      |
-| 容器化                                  | 🟡 `frontend/Dockerfile` ＋ 根目錄 `docker-compose.yml` 已建立，尚未實跑驗證（[log/06](log/06-docker-整合.md)） |
+| 容器化                                  | ✅ 已建立並實跑驗證（[log/06](log/06-docker-整合.md)）                            |
 
 `src/App.vue` 已把上傳與串流顯示接起來，但刻意停在**原生 HTML 元素、零樣式**的狀態：
 這個階段要驗證的是資料有沒有正確地邊串邊進畫面，不是版面。編輯、確認、挑候選、送出

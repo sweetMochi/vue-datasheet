@@ -20,7 +20,7 @@
 | 狀態與 composable        | ✅ 完成   | `useReviewStore` / `useExtraction` / `useFieldFilters`（[依賴圖](ARCHITECTURE.md#store-依賴關係)）                              |
 | 上傳 / 解析中 / 審核介面 | ⬜ 未開始 | 三個階段，元件規劃見 [ARCHITECTURE.md](ARCHITECTURE.md#元件配置規劃尚未建立)                                                        |
 | 防護性測試               | ✅ 45 支  | SSE 分幀、HTTP 狀態分流、中止、解析中途失敗、必填缺漏擋送出、候選答案挑選、重設（[清單](ARCHITECTURE.md#測試防的是什麼)）       |
-| Docker 整合              | 🟡 已建立 | 根目錄 `docker-compose.yml` ＋ `frontend/Dockerfile`（多階段 build → nginx），**尚未實跑驗證** |
+| Docker 整合              | ✅ 完成   | 根目錄 `docker-compose.yml` ＋ `frontend/Dockerfile`（多階段 build → nginx），冷啟 20 秒，已實跑驗證 |
 | 虛擬捲動                 | ⬜ 未決定 | 先用 `?field_count=300` 量測是否真的卡                                                                                      |
 | 無障礙、跨裝置           | ⬜ 未開始 | 題目列為加分項                                                                                                              |
 | 題目指定的 README 問答   | ⬜ 未撰寫 | 九項，見文末清單                                                                                                            |

@@ -63,20 +63,23 @@ A 的優點不會消失，介面做完後有餘裕再換也來得及
 
 刻意偏離註解建議的數字，README 有交代
 
-## 還沒驗證的部分
+## 實跑結果
 
-寫這份時本機 Docker Desktop 的 daemon 沒在跑（`npipe://...dockerDesktopLinuxEngine` 連不上），**三套指令一次都還沒實跑**
+`2026-09-22`，Docker Desktop 起來之後跑過一輪
 
-待驗清單：
+| 驗什麼 | 結果 |
+| --- | --- |
+| 冷啟 build ＋ 啟動 | 20 秒，兩個容器都 Up |
+| 映像大小 | web 93.7 MB（nginx ＋ dist）、api 245 MB |
+| build arg 有沒有進 bundle | 有，容器內的 `/assets/index-*.js` 抓得到 `http://localhost:8000` |
+| 上傳 `檢驗報告_範例.pdf`（312 KB） | 200，拿得到 `document_id` |
+| SSE 逐筆抵達 | 是。stage 五筆分散在 0～5 秒，field 六筆分散在 5～7 秒，不是最後一次吐完 |
+| `fail_at=3` | 三筆 field 之後收到 `error` / `UPSTREAM_TIMEOUT` |
+| `field_count=300&speed=10` | 12 秒，300 筆 field 全到，`done` 的 `field_count` 對得上 |
+| 中途斷線（`timeout 5 curl`） | 50 筆收到 44 筆後斷線，api 服務本身不受影響 |
+| 乾淨 clone 再 build | 成功，且 bundle 檔名雜湊與主專案相同（`index-CT9yBHj1.js`） |
 
-- SSE 是不是逐筆抵達，不是最後一次吐完
-- 上傳 `檢驗報告_範例.pdf` 會不會被擋
-- api 還在啟動時開頁面的行為
-- `git clone` 到另一個目錄再 `up --build`，確認 build context 裡沒有漏提交的檔案
-
-## 已經驗過的一項
-
-`ARG` 傳進去的值 Vite 到底吃不吃 —— 這是寫這份時最沒把握的地方，但它不需要 Docker 就能驗，因為 `ARG` 就是以環境變數的形式交給 `RUN`：
+`ARG` → Vite 那條路也確認了 —— 這是寫這份時最沒把握的地方，而它不需要 Docker 就能驗，因為 `ARG` 就是以環境變數的形式交給 `RUN`：
 
 ```bash
 VITE_API_BASE=http://verify.test:9999 npm run build
@@ -84,4 +87,19 @@ grep -ro "verify\.test:9999" dist/assets/   # 命中
 grep -ro "localhost:8000" dist/assets/      # 無殘留
 ```
 
-`process.env` 的值確實覆蓋掉 `.env` 的預設值，並被字面替換進 bundle。原本準備的退路（build 階段先寫一份 `.env.production`）用不上
+`process.env` 的值確實覆蓋掉 `.env` 的預設值並被字面替換進 bundle。原本準備的退路（build 階段先寫一份 `.env.production`）用不上
+
+## 順手撞到的問題：中文檔名會亂碼
+
+上傳 `檢驗報告_範例.pdf`，後端回傳的 `filename` 是 `ÀËÅç³ø§i_½d¨Ò.pdf`；同一個檔案改成純 ASCII 檔名就正常
+
+`server.py` 第 226 行只是原封不動回傳 `file.filename`，所以是 multipart 解析層把 UTF-8 的位元組當 latin-1 解掉了。後端不改，也沒必要為此改
+
+**對前端的影響**：畫面上要顯示檔名時用本地的 `File.name`，不要用 API 回傳的 `filename`。使用者上傳中文檔名的機率不低，顯示成亂碼會讓人以為檔案傳壞了
+
+這一項是用 curl 驗的。瀏覽器送 multipart 時同樣是 UTF-8 位元組，推測結果一樣，但**沒有實測過瀏覽器**
+
+## 還沒驗的
+
+- api 還在啟動時開頁面的實際表現 —— 靜態檔本身不依賴 api（web 容器單獨起得來），但前端此時的錯誤處理長什麼樣，要等介面做完才看得出來
+- 跨裝置與其他瀏覽器
