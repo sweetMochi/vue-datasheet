@@ -4,18 +4,21 @@
 
 建議的閱讀順序：先看「狀態機」知道整個流程長什麼樣，再看「資料流」知道誰寫誰讀，最後才看個別檔案
 
+推導過程、實測數據與還沒把握的地方另外放在 [REVIEW.md](REVIEW.md) —— 這裡講「系統長什麼樣」，那裡講「為什麼這樣決定、怎麼確認它是對的」
+
 ---
 
 ## 目前的實作範圍
 
-| 層                                      | 狀態                                                                             |
-| --------------------------------------- | -------------------------------------------------------------------------------- |
-| 型別（`src/types/`）                    | ✅ 已建立                                                                        |
-| 傳輸層（`src/api/`）                    | ✅ 已建立，`fetch` ＋ `ReadableStream`                                           |
-| 狀態與 composable（`src/composables/`） | ✅ 已建立                                                                        |
-| 測試                                    | ✅ 45 支，涵蓋 SSE 分幀、HTTP 狀態分流、分組順序、送出阻擋、中止、中途失敗、重設 |
-| 元件（`src/components/`）               | ⬜ 尚未拆分，本文件的「元件配置」章節是規劃                                      |
-| 容器化                                  | ✅ 已建立並實跑驗證（[log/06](log/06-docker-整合.md)）                            |
+| 層                                      | 狀態                                                                                                 |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| 型別（`src/types/`）                    | ✅ 已建立                                                                                            |
+| 傳輸層（`src/api/`）                    | ✅ 已建立，`fetch` ＋ `ReadableStream`                                                               |
+| 狀態與 composable（`src/composables/`） | ✅ 已建立                                                                                            |
+| 測試                                    | ✅ 52 支，涵蓋 SSE 分幀、HTTP 狀態分流、分組順序、送出阻擋、中止、中途失敗、重設、重新解析的資料保護 |
+| 元件（`src/components/`）               | ⬜ 尚未拆分，本文件的「元件配置」章節是規劃                                                          |
+| 容器化                                  | ✅ 已建立並實跑驗證（[log/06](log/06-docker-整合.md)）                                               |
+| 切版示意                                | ✅ 四張設計稿，見 [README 的介面設計](README.md#介面設計) 與 `log/design/`                           |
 
 `src/App.vue` 已把上傳與串流顯示接起來，但刻意停在**原生 HTML 元素、零樣式**的狀態：
 這個階段要驗證的是資料有沒有正確地邊串邊進畫面，不是版面。編輯、確認、挑候選、送出
@@ -50,6 +53,52 @@ SSE 一送來 `field` 事件就進清單，使用者可以立刻開始審。若�
 **三、重新解析不重新上傳**
 
 `document_id` 還在，重傳檔案只是讓使用者多等一次。所以 `uploadDocument` 與 extract 是兩支獨立的函式，而不是一支 `uploadAndExtract`
+
+---
+
+## 中止與重新解析的契約
+
+題目列的需求之一是「跑到一半使用者可能就不想等了」。這一節只講契約，推導過程與實測見
+[REVIEW.md](REVIEW.md#使用者中止的完整流程)
+
+### 中止會真的讓後端停
+
+`abort()` → `controller.abort()` → 瀏覽器斷線 → 後端 `request.is_disconnected()` → `return`
+
+前端是立即的：`settled = true` 之後不再派送任何事件，而且 `AbortError` 被吃掉，
+**不會冒出 `CONNECTION_LOST`** —— 中止是使用者的意圖，不是錯誤
+
+後端在下一次迴圈頂端停止（最長約 0.6 秒），檢查點在 `yield` 之前，所以延遲期間不會再吐出任何欄位
+
+### 中止與失敗的差別
+
+|               | `aborted`    | `failed`                          |
+| ------------- | ------------ | --------------------------------- |
+| 觸發          | 使用者按中止 | `error` 事件、HTTP 失敗、串流截斷 |
+| 已抽欄位      | 保留         | 保留                              |
+| `streamError` | `null`       | 有值                              |
+| `canRetry`    | `true`       | `DOCUMENT_EXPIRED` 時為 `false`   |
+| 畫面          | 「繼續解析」 | 「重新解析」或「重新上傳」        |
+
+兩者都保留欄位，所以 `canRetry` 的判斷涵蓋 `aborted` 與 `failed` 兩種 phase
+
+### 重新解析一律丟棄使用者的修改
+
+後端的 `id` 是洗牌後的位置序號，跨解析不穩定（實測兩次解析 18 個欄位，label 對得起來的是 0 個），
+沒辦法把舊修改對回新結果。所以 `retry()` 回傳三態而不是 `boolean`：
+
+```ts
+type RetryOutcome = 'started' | 'needs-confirm' | 'unavailable'
+```
+
+| 情況                 | 回傳            | 畫面                        |
+| -------------------- | --------------- | --------------------------- |
+| 沒有任何修改         | `started`       | 直接重跑，不多問一句        |
+| 有修改或確認過       | `needs-confirm` | 「會丟掉你改過的 N 個欄位」 |
+| `document_id` 已失效 | `unavailable`   | 引導重新上傳                |
+
+`applyField` 裡的 `if (!drafts.has(...))` 只防同一條串流內的重送，**不是**跨解析的合併機制，
+該處有註解鎖住這件事
 
 ---
 
@@ -117,7 +166,7 @@ flowchart LR
 
 多候選排在低把握之前，是因為候選是「要你挑一個」，動作比「去看一眼」明確。後端給多候選時一定同時給低把握度，兩者永遠同時成立
 
-**`0.7` 這個數字的來源**：mock 後端產生的 `confidence` 是雙峰的 —— 低的落在 0.31～0.68，高的落在 0.82～0.99，中間是空的。0.7 落在縫隙裡，怎麼調都不會改變分類結果。真實後端未必如此分布，這是本專案最沒把握的數字，詳見文末
+**`0.7` 這個數字的來源**：mock 後端的 `confidence` 是雙峰分布，0.7 正好落在兩峰之間的真空段，所以在這份 mock 上怎麼調都不影響分類。這也表示它從來沒被驗證過 —— 24000 筆實測、風險與替代方案見 [REVIEW.md](REVIEW.md#低把握度界線-07-的推導)
 
 **非必填又沒抽到的欄位不標色**：使用者無從得知文件裡到底有沒有這個值，標了只是製造一堆他沒辦法處理的紅點
 
@@ -132,7 +181,7 @@ type ExtractionTransport = (
   documentId: string,
   options: ExtractOptions,
   handlers: ExtractionHandlers,
-) => ExtractionSubscription;
+) => ExtractionSubscription
 ```
 
 **拿掉會怎樣**：測試就得起一個真的後端，或是去 mock 全域的 `fetch`。前者讓測試變慢又不穩，後者等於在測 mock 而不是測自己的程式
@@ -217,7 +266,7 @@ type ExtractionTransport = (
 
 ### `src/composables/useReviewStore.ts` — 唯一狀態來源
 
-不用 Pinia：整個流程是單一文件的單一狀態機，一支 composable 就涵蓋（理由見根目錄 README 的「刻意不裝」）
+不用 Pinia：整個流程是單一文件的單一狀態機，一支 composable 就涵蓋（理由見 [SCAFFOLD.md 的「刻意不裝」](SCAFFOLD.md#刻意不裝)）
 
 匯出 `createReviewStore()` 工廠與 `useReviewStore()` 單例。**測試一律用工廠自己開一份乾淨的**，不碰單例
 
@@ -250,6 +299,7 @@ type ExtractionTransport = (
 | `submitPayload`               | 使用者確認後的值，附 `edited` 旗標                         |
 | `isStreaming`                 | 是否顯示骨架列與中止鈕                                     |
 | `canRetry`                    | 能不能重跑同一份文件（`DOCUMENT_EXPIRED` 時為 false）      |
+| `editedIds` / `hasUserEdits`  | 使用者改過或確認過的欄位，重新解析前用它決定要不要先問     |
 
 **`blockingIssues` 刻意不是「已確認數 === 總數」**
 
@@ -261,7 +311,9 @@ type ExtractionTransport = (
 
 元件只呼叫 `start` / `abort` / `retry`，不碰 `fetch`，也不碰 subscription
 
-`retry()` 回傳 `boolean`：`document_id` 已失效時回 `false` 並且不開連線，讓畫面改成引導重新上傳而不是開第二條必定 404 的連線
+`retry()` 回傳 `RetryOutcome` 三態（`started` / `needs-confirm` / `unavailable`）而不是 `boolean`：
+`document_id` 已失效與「使用者有未保存的修改」要走完全不同的路，合成一個 `false` 會把兩者混在一起。
+完整規則見[重新解析一律丟棄使用者的修改](#重新解析一律丟棄使用者的修改)，推導見 [REVIEW.md](REVIEW.md#重新解析會丟掉什麼)
 
 **為什麼訂閱握在這裡而不是元件裡**：header 元件被卸載時 subscription 會跟著洩漏，後端要等到 TCP 超時才知道沒人在聽了。`onScopeDispose` 保證任何卸載路徑都會斷線
 
@@ -449,6 +501,9 @@ src/components/
 | scope 結束自動斷線                      | 有人拿掉 `onScopeDispose`                               |
 | 已結束後再中止不改狀態                  | 有人在 `abort()` 裡無條件寫 `phase`                     |
 | `retry()` 沿用 `document_id`            | 有人把重試寫成重新上傳                                  |
+| 有修改時 `retry()` 先要求確認           | 有人把確認拿掉，讓使用者的工作靜默消失                  |
+| 只按過確認也算動過手                    | 有人把 `hasUserEdits` 改成只看 `touched`                |
+| 重跑後同一個 id 不沿用舊草稿            | 有人為了「保留使用者的工作」拿掉 `drafts.clear()`       |
 | 候選優先於低把握                        | 有人調換 `resolveStatus` 的判斷順序                     |
 | 上傳失敗給得出訊息                      | 有人吞掉 `uploadDocument` 的例外                        |
 | 事件被逐字元切開仍能還原                | 有人拿掉 `sseParser` 的 buffer，改成每個 chunk 各自解析 |
@@ -465,18 +520,14 @@ src/components/
 
 ## 沒把握的地方
 
-**一、`LOW_CONFIDENCE_THRESHOLD = 0.7`**
+七項，理由與替代方案見 [REVIEW.md](REVIEW.md#沒把握的地方)
 
-這個值是從 mock 後端的雙峰分布反推的，落在兩峰之間的空隙裡，所以在這份 mock 上怎麼調都不影響結果。真實的解析服務不會這麼乾淨，這個常數幾乎一定要換成後端給的閾值，或是做成可調的
-
-**二、「使用者改過值就算處理完」**
-
-`resolveStatus` 把 `touched` 視為已處理，不再要求按確認。但使用者也可能只是手滑改了一個字。要不要保留「改過但仍需確認」這個狀態，我沒有把握，這要問出題方實際的審核流程
-
-**三、`shallowReactive` 的 Map**
-
-草稿一律整個物件替換來觸發更新。這在目前的 API 表面下是對的，但如果之後有人直接寫 `store.drafts.get(id).value = x`，畫面不會更新而且不會報錯。考慮過改成 `readonly` 包一層，但那會讓型別噪音變大
-
-**四、虛擬捲動還沒做**
-
-`useVirtualList` 在規劃裡但沒實作，因為還沒用 `?field_count=300` 實測過是否真的卡。分組區段標題會讓列高不一致，所以要做的是可變高度的虛擬捲動，不是固定 `itemHeight` —— 這比一般的清單虛擬化難不少，也會犧牲瀏覽器原生的 Ctrl+F
+| #   | 項目                             | 一句話                                                                      |
+| --- | -------------------------------- | --------------------------------------------------------------------------- |
+| 一  | `LOW_CONFIDENCE_THRESHOLD = 0.7` | 落在 mock 的雙峰真空段，怎麼調都一樣，等於沒被驗證過                        |
+| 二  | 「使用者改過值就算處理完」       | `touched` 自動放行，但手滑改一個字也算，要問實際審核流程                    |
+| 三  | `shallowReactive` 的 Map         | 「整個物件替換」的約束型別擋不住，違反了也不報錯                            |
+| 四  | 虛擬捲動還沒做                   | 還沒用 `?field_count=300` 實測過是否真的卡                                  |
+| 五  | 重新解析一律丟棄修改             | 目前唯一安全的做法，但對使用者是實在的損失                                  |
+| 六  | 中止後後端是否真的停止           | 依 Starlette 契約推論，沒對真實 uvicorn 驗過                                |
+| 七  | **最不確定的一段**               | `sseParser` 的 CRLF 跨 chunk 處理 —— 真實後端不會觸發，只有自己的測試在保護 |
