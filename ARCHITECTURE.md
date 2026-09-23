@@ -10,15 +10,15 @@
 
 ## 目前的實作範圍
 
-| 層                                      | 狀態                                                                                                                                                        |
-| --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 型別（`src/types/`）                    | ✅ 已建立                                                                                                                                                   |
-| 傳輸層（`src/api/`）                    | ✅ 已建立，`fetch` ＋ `ReadableStream`                                                                                                                      |
-| 狀態與 composable（`src/composables/`） | ✅ 已建立                                                                                                                                                   |
-| 測試                                    | ✅ 103 支，涵蓋 SSE 分幀、HTTP 狀態分流、分組順序、送出阻擋、中止、中途失敗、重設、重新解析的資料保護、送出、樣式設定、一列的四種狀態、篩選與導覽、送出流程 |
-| 元件（`src/components/`）               | 🟡 審核與送出都已建好，上傳與例外狀態的元件仍是規劃                                                                                                         |
-| 容器化                                  | ✅ 已建立並實跑驗證（[log/06](log/06-docker-整合.md)）                                                                                                      |
-| 切版示意                                | ✅ 四張設計稿，見 [README 的介面設計](README.md#介面設計) 與 `log/design/`                                                                                  |
+| 層                                      | 狀態                                                                                                                                                                        |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 型別（`src/types/`）                    | ✅ 已建立                                                                                                                                                                   |
+| 傳輸層（`src/api/`）                    | ✅ 已建立，`fetch` ＋ `ReadableStream`                                                                                                                                      |
+| 狀態與 composable（`src/composables/`） | ✅ 已建立                                                                                                                                                                   |
+| 測試                                    | ✅ 112 支，涵蓋 SSE 分幀、HTTP 狀態分流、分組順序、送出阻擋、中止、中途失敗、重設、重新解析的資料保護、送出、樣式設定、一列的四種狀態、篩選與導覽、送出流程、中止確認與上傳 |
+| 元件（`src/components/`）               | ✅ 全部建好                                                                                                                                                                 |
+| 容器化                                  | ✅ 已建立並實跑驗證（[log/06](log/06-docker-整合.md)）                                                                                                                      |
+| 切版示意                                | ✅ 四張設計稿，見 [README 的介面設計](README.md#介面設計) 與 `log/design/`                                                                                                  |
 
 `src/App.vue` 依 `phase` 分成兩段：`idle` 是上傳，其餘都走 `ReviewLayout`。
 審核畫面已經切版完成 —— 三區骨架、群組導覽、分段與搜尋、sticky 區段標題、
@@ -26,8 +26,9 @@
 
 送出也接上了：確認對話框 → `console.table(payload)` → 完成對話框 → 回到 `idle` 等下一份
 
-還沒做：上傳與例外狀態的切版（`FileDropZone`、`ParseErrorBanner`、`AbortConfirmDialog`）。
-上傳那一段目前仍是原生元素
+上傳與例外狀態也切好了：拖放上傳、中止確認、解析中斷的說明帶。
+`ParseProgressBar` 沒有獨立成元件 —— 它是 `ReviewLayout` 的一個 slot 加一行寬度綁定，
+抽出來只會多一層間接
 
 `src/style.css` 的 `@theme` 設計 token 見
 [SCAFFOLD.md](SCAFFOLD.md#設計-token-走-tailwind-的-theme)
@@ -467,12 +468,13 @@ flowchart TD
 
 ```
 src/components/
+  ui/
+    ModalDialog.vue           ✅ 原生 <dialog>，焦點鎖定與 Esc 都免費
   upload/
-    FileDropZone.vue          ⬜ 規劃
+    FileDropZone.vue          ✅ label 包真的 input，拖放與鍵盤都能用
   parse/
-    ParseProgressBar.vue      ⬜ 規劃
-    ParseErrorBanner.vue      ⬜ 規劃
-    AbortConfirmDialog.vue    ⬜ 規劃
+    ParseErrorBanner.vue      ✅ 依 canRetry 決定給「重新解析」還是「重新上傳」
+    AbortConfirmDialog.vue    ✅ 欄位數是活的，不是快照
   review/
     ReviewLayout.vue          ✅ 純排版，三區骨架
     GroupNav.vue              ✅
@@ -497,6 +499,16 @@ src/components/
 
 `CandidatePicker` 的「都不對，自己填」透過 `defineExpose({ focus })` 把游標送進輸入框。
 沒有這顆，使用者會以為只能從系統給的三個裡面挑
+
+`AbortConfirmDialog` 的欄位數**必須綁 `store.order.length`，不能是開啟時的快照**。
+`abort()` 是按下「停止」才呼叫的，對話框開著的那幾秒串流仍在跑 ——
+實測開啟時 13、兩秒半後 28。寫死快照會讓那句話變成謊言
+
+`ParseErrorBanner` 依 `canRetry` 決定給哪顆按鈕：`DOCUMENT_EXPIRED` 時重跑一百次都是 404，
+該給的是「重新上傳」。這個分辨能力正是傳輸層從 `EventSource` 換成 `fetch` 換到的
+
+`FileDropZone` 外層是 `<label>` 包一個真的 `<input type="file">`（`sr-only` 而非 `hidden`）。
+點整塊開檔案選擇器、Tab 進得來、拖放也可以 —— 用 div 做的話鍵盤使用者沒有路可走
 
 `ConfidenceMark` 是 `aria-hidden` 的 —— 同一件事右邊的文字標註已經說過，讀螢幕器再念一次是噪音
 
@@ -566,6 +578,9 @@ src/components/
 | Tailwind 有生效且 token 接得上 utility     | 有人把 `@import` 註解掉，整份樣式靜默失效                |
 | `bg-blue-500` 不產生任何規則               | 有人把內建調色盤加回來，顏色就會被拿去標不需要處理的東西 |
 | `#app` 的 `min-width` 是 1120px            | 有人拿掉它，窄螢幕會變成錯位而不是橫向捲動               |
+| 中止對話框的欄位數會跟著串流跳             | 有人把它改成開啟當下的快照，那句話就變成謊言             |
+| `DOCUMENT_EXPIRED` 時給的是「重新上傳」    | 有人一律給「重新解析」，使用者被鎖在必定 404 的迴圈裡    |
+| 上傳區裡是真的 file input 且非 hidden      | 有人改成 div，鍵盤使用者就完全無法上傳                   |
 | 安靜的列沒有色條、沒有確認鈕               | 有人把顏色用在不需要處理的列上，整個判斷就破功           |
 | 把握度的數字只進 title，畫面上看不到       | 有人把百分比放回畫面                                     |
 | 安靜的列也對得上 label、進得了 Tab 順序    | 有人改成「點一下才變輸入框」，鍵盤就跳過八成欄位         |

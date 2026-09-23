@@ -44,10 +44,10 @@ watch(() => props.open, sync, { flush: 'post' })
   <!-- close 事件涵蓋 Esc 與 form method=dialog，兩條路都會走到這裡 -->
   <dialog
     ref="dialog"
-    class="bg-surface border-line backdrop:bg-ink/40 m-auto w-[30rem] max-w-[90vw] rounded-lg border p-6 shadow-xl"
+    class="bg-surface border-line backdrop:bg-ink/40 m-auto w-120 max-w-[90vw] rounded-lg border p-6 shadow-xl"
     @close="emit('close')"
   >
-    <h2 class="text-base font-bold" :class="tone === 'danger' ? 'text-danger' : 'text-ink'">
+    <h2 class="border-line mt-8 border-b text-base font-bold" :class="tone === 'danger' ? 'text-danger' : 'text-ink'">
       {{ title }}
     </h2>
 

@@ -6,7 +6,7 @@
  * 刻意不是「解析中畫面 → 轉場 → 審核畫面」—— 欄位一到就進清單，
  * 使用者不必對著空白畫面等數十秒（見 ARCHITECTURE.md 的狀態機）。
  *
- * 還沒做：上傳與例外狀態的切版（Phase 5）。
+ * 上傳、中止確認、解析中斷都已切版（Phase 5）。
  */
 import { computed, nextTick, reactive, ref } from 'vue'
 import ReviewLayout from '@/components/review/ReviewLayout.vue'
@@ -15,6 +15,9 @@ import TriageBar from '@/components/review/TriageBar.vue'
 import FieldGroupSection from '@/components/review/FieldGroupSection.vue'
 import FieldRow from '@/components/review/FieldRow.vue'
 import SubmitGuard from '@/components/review/SubmitGuard.vue'
+import FileDropZone from '@/components/upload/FileDropZone.vue'
+import AbortConfirmDialog from '@/components/parse/AbortConfirmDialog.vue'
+import ParseErrorBanner from '@/components/parse/ParseErrorBanner.vue'
 import ModalDialog from '@/components/ui/ModalDialog.vue'
 import { useReviewStore } from '@/composables/useReviewStore'
 import { useExtraction } from '@/composables/useExtraction'
@@ -37,11 +40,6 @@ const { uploadError, start, retry, abort } = useExtraction(store, { extract: ext
 
 const file = ref<File | null>(null)
 
-function pickFile(event: Event) {
-  const input = event.target as HTMLInputElement
-  file.value = input.files?.[0] ?? null
-}
-
 function submitUpload() {
   if (file.value) void start(file.value)
 }
@@ -63,6 +61,13 @@ const groupEntries = computed<GroupEntry[]>(() =>
  * 重跑會把使用者改過與確認過的欄位全部丟掉 —— 後端的 id 跨解析不穩定，
  * 沒辦法把舊修改對回新結果（見 useReviewStore.applyField 的註解）。
  */
+const confirmingAbort = ref(false)
+
+function stopParsing() {
+  confirmingAbort.value = false
+  abort()
+}
+
 const pendingRetryConfirm = ref(false)
 
 function requestRetry() {
@@ -72,6 +77,14 @@ function requestRetry() {
 function confirmRetry() {
   pendingRetryConfirm.value = false
   retry({ discardEdits: true })
+}
+
+/** 從頭來過。document_id 失效時這是唯一的出路，送出完成後也走這裡 */
+function restart() {
+  store.reset()
+  file.value = null
+  filters.clear()
+  filters.mode.value = 'pending'
 }
 
 /**
@@ -113,10 +126,7 @@ function doSubmit() {
 /** 關掉完成對話框 → 清空一切，等下一份文件 */
 function finishSubmit() {
   submitted.value = null
-  store.reset()
-  file.value = null
-  filters.clear()
-  filters.mode.value = 'pending'
+  restart()
 }
 
 /**
@@ -150,21 +160,20 @@ const PHASE_TEXT: Record<string, string> = {
   <main v-if="store.phase.value === 'idle'" class="p-6">
     <h1 class="text-ink text-2xl font-bold">檢驗報告欄位審核</h1>
 
-    <p class="mt-4">
-      <!--
-        刻意不設 accept：題目寫明「隨便丟什麼檔案都可以，後端不會真的去解析內容」，
-        而且真實的檢驗報告很多是掃描的圖片，限死 PDF 反而不符情境
-      -->
-      <input type="file" @change="pickFile" />
+    <p class="text-muted mt-1 text-sm">上傳一份檢驗報告，解析完成後逐欄確認與修改</p>
+
+    <div class="mt-6 max-w-2xl">
+      <FileDropZone :file="file" @select="file = $event" />
+
       <button
         type="button"
-        class="border-accent bg-accent hover:bg-accent-hover ml-2 h-9 rounded-md border px-4 text-sm font-medium text-white disabled:opacity-40"
+        class="border-accent bg-accent hover:bg-accent-hover mt-4 h-10 rounded-md border px-5 text-sm font-medium text-white disabled:opacity-40"
         :disabled="!file"
         @click="submitUpload"
       >
         上傳並解析
       </button>
-    </p>
+    </div>
 
     <p v-if="uploadError" class="text-danger mt-3 text-sm">
       <strong>上傳失敗：</strong>{{ uploadError }}
@@ -209,7 +218,7 @@ const PHASE_TEXT: Record<string, string> = {
         v-if="store.isStreaming.value"
         type="button"
         class="border-field bg-surface text-ink hover:border-muted h-9 rounded-md border px-3.5 text-sm"
-        @click="abort()"
+        @click="confirmingAbort = true"
       >
         中止解析
       </button>
@@ -263,41 +272,14 @@ const PHASE_TEXT: Record<string, string> = {
       <SubmitGuard :issues="store.blockingIssues.value" @jump="jumpToField" />
 
       <!-- 中止與解析失敗都保留已抽到的欄位，差別只在原因與可用的動作 -->
-      <div
+      <ParseErrorBanner
         v-if="store.streamError.value"
-        class="bg-danger-bg border-danger/20 text-danger flex items-center gap-3 border-b px-6 py-3 text-sm"
-      >
-        <strong>解析中斷</strong>
-        <span>{{ store.streamError.value.message }}</span>
-        <template v-if="received > 0">
-          <span class="text-muted">已抽到的 {{ received }} 個欄位留在下方</span>
-        </template>
-      </div>
-
-      <div
-        v-if="pendingRetryConfirm"
-        class="bg-danger-bg border-danger/20 flex items-center gap-3 border-b px-6 py-3 text-sm"
-      >
-        <strong class="text-danger">
-          重新解析會丟掉你改過的 {{ store.editedIds.value.length }} 個欄位
-        </strong>
-        <span class="text-muted">後端重跑回傳的是一份全新的結果，舊的修改對不回去</span>
-        <div class="flex-1" />
-        <button
-          type="button"
-          class="border-danger bg-danger h-8 rounded-md border px-3 text-[13px] font-medium text-white"
-          @click="confirmRetry()"
-        >
-          確定，重新解析
-        </button>
-        <button
-          type="button"
-          class="border-field bg-surface text-ink h-8 rounded-md border px-3 text-[13px]"
-          @click="pendingRetryConfirm = false"
-        >
-          取消
-        </button>
-      </div>
+        :error="store.streamError.value"
+        :received="received"
+        :can-retry="store.canRetry.value"
+        @retry="requestRetry()"
+        @restart="restart()"
+      />
 
       <div class="flex-1 overflow-y-auto pb-8">
         <p v-if="received === 0 && store.isStreaming.value" class="text-muted px-6 py-6 text-sm">
@@ -341,6 +323,42 @@ const PHASE_TEXT: Record<string, string> = {
       </div>
     </template>
   </ReviewLayout>
+
+  <AbortConfirmDialog
+    :open="confirmingAbort"
+    :received="received"
+    @stop="stopParsing()"
+    @keep-waiting="confirmingAbort = false"
+  />
+
+  <ModalDialog
+    :open="pendingRetryConfirm"
+    title="重新解析會丟掉你的修改"
+    tone="danger"
+    @close="pendingRetryConfirm = false"
+  >
+    <p>
+      你改過或確認過 {{ store.editedIds.value.length }} 個欄位。後端重跑回傳的是一份全新的結果，
+      舊的修改沒辦法對回去。
+    </p>
+
+    <template #actions>
+      <button
+        type="button"
+        class="border-danger bg-danger h-9 rounded-md border px-4 text-sm font-medium text-white"
+        @click="confirmRetry()"
+      >
+        確定，重新解析
+      </button>
+      <button
+        type="button"
+        class="border-field bg-surface text-ink h-9 rounded-md border px-4 text-sm"
+        @click="pendingRetryConfirm = false"
+      >
+        取消
+      </button>
+    </template>
+  </ModalDialog>
 
   <ModalDialog :open="confirmingSubmit" title="確定要送出嗎？" @close="confirmingSubmit = false">
     <p>
