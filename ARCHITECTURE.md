@@ -15,7 +15,7 @@
 | 型別（`src/types/`）                    | ✅ 已建立                                                                                                                                                                   |
 | 傳輸層（`src/api/`）                    | ✅ 已建立，`fetch` ＋ `ReadableStream`                                                                                                                                      |
 | 狀態與 composable（`src/composables/`） | ✅ 已建立                                                                                                                                                                   |
-| 測試                                    | ✅ 120 支，涵蓋 SSE 分幀、HTTP 狀態分流、分組順序、送出阻擋、中止、中途失敗、重設、重新解析的資料保護、送出、樣式設定、一列的五種狀態、篩選與導覽、送出流程、中止確認與上傳 |
+| 測試                                    | ✅ 125 支，涵蓋 SSE 分幀、HTTP 狀態分流、分組順序、送出阻擋、中止、中途失敗、重設、重新解析的資料保護、送出、樣式設定、一列的五種狀態、篩選與導覽、送出流程、中止確認與上傳 |
 | 元件（`src/components/`）               | ✅ 全部建好                                                                                                                                                                 |
 | 容器化                                  | ✅ 已建立並實跑驗證（[log/06](log/06-docker-整合.md)）                                                                                                                      |
 | 切版示意                                | ✅ 四張設計稿，見 [README 的介面設計](README.md#介面設計) 與 `log/design/`                                                                                                  |
@@ -574,7 +574,7 @@ src/components/
 | 只按過確認也算動過手                       | 有人把 `hasUserEdits` 改成只看 `touched`                 |
 | 重跑後同一個 id 不沿用舊草稿               | 有人為了「保留使用者的工作」拿掉 `drafts.clear()`        |
 | 必填補齊後才送得出去，payload 帶使用者的值 | 有人把 payload 改成讀 `fields` 而不是 `drafts`           |
-| 已送出不是死路，可以回到審核               | 有人拿掉 `backToReview`                                  |
+| 送出後 `reset()` 回到 idle，清得乾淨       | 有人只清欄位忘了清 `document`，下一份會沿用舊的          |
 | 候選優先於低把握                           | 有人調換 `resolveStatus` 的判斷順序                      |
 | 改值不會讓那一列離開待處理，確認才會       | 有人把 `touched` 加回放行條件，使用者只打得進一個字      |
 | 確認之後再改值要重新確認                   | 有人讓 `setValue` 保留 `confirmed`，替沒看過的值背書     |
