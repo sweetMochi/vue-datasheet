@@ -20,7 +20,7 @@ defineProps<{
     <header
       class="bg-ground/95 sticky top-0 z-10 flex items-center gap-3 px-6 pt-4 pb-2 backdrop-blur"
     >
-      <h2 class="text-muted text-xs font-bold tracking-[0.1em]">{{ group }}</h2>
+      <h2 class="text-muted pb-0 text-xs font-bold tracking-[0.1em]">{{ group }}</h2>
       <div class="bg-line h-px flex-1" />
       <span class="text-muted font-mono text-xs tabular-nums">
         <template v-if="pending > 0">{{ pending }} 需處理 ／ </template>共 {{ total }}
