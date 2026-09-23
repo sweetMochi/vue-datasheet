@@ -41,10 +41,6 @@ export async function uploadDocument(
   // 後端的 filename 只是把我們剛送上去的檔名原封不動回傳（server.py 的 upload_document），
   // 它不是後端的知識，而是一趟編碼往返之後的回音。同一份資訊，本地這份少繞一圈，
   // 沒有任何理由用遠端的版本。
-  //
-  // 實務上那一圈確實會壞：log/06 用 curl 上傳中文檔名時，回傳的是
-  // 「ÀËÅç³ø§i_½d¨Ò.pdf」—— multipart 解析層把 UTF-8 位元組當 latin-1 解了。
-  // 不過就算哪天後端修好，這裡也不會改回去，理由如上。
   return { document_id: payload.document_id, filename: file.name }
 }
 

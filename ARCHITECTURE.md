@@ -10,24 +10,25 @@
 
 ## 目前的實作範圍
 
-| 層                                      | 狀態                                                                                                                                 |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| 型別（`src/types/`）                    | ✅ 已建立                                                                                                                            |
-| 傳輸層（`src/api/`）                    | ✅ 已建立，`fetch` ＋ `ReadableStream`                                                                                               |
-| 狀態與 composable（`src/composables/`） | ✅ 已建立                                                                                                                            |
-| 測試                                    | ✅ 77 支，涵蓋 SSE 分幀、HTTP 狀態分流、分組順序、送出阻擋、中止、中途失敗、重設、重新解析的資料保護、送出、樣式設定、一列的四種狀態 |
-| 元件（`src/components/`）               | 🟡 一列的四個已建好，版面骨架與流程元件仍是規劃                                                                                      |
-| 容器化                                  | ✅ 已建立並實跑驗證（[log/06](log/06-docker-整合.md)）                                                                               |
-| 切版示意                                | ✅ 四張設計稿，見 [README 的介面設計](README.md#介面設計) 與 `log/design/`                                                           |
+| 層                                      | 狀態                                                                                                                                             |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 型別（`src/types/`）                    | ✅ 已建立                                                                                                                                        |
+| 傳輸層（`src/api/`）                    | ✅ 已建立，`fetch` ＋ `ReadableStream`                                                                                                           |
+| 狀態與 composable（`src/composables/`） | ✅ 已建立                                                                                                                                        |
+| 測試                                    | ✅ 97 支，涵蓋 SSE 分幀、HTTP 狀態分流、分組順序、送出阻擋、中止、中途失敗、重設、重新解析的資料保護、送出、樣式設定、一列的四種狀態、篩選與導覽 |
+| 元件（`src/components/`）               | 🟡 一列與版面骨架已建好，送出與流程元件仍是規劃                                                                                                  |
+| 容器化                                  | ✅ 已建立並實跑驗證（[log/06](log/06-docker-整合.md)）                                                                                           |
+| 切版示意                                | ✅ 四張設計稿，見 [README 的介面設計](README.md#介面設計) 與 `log/design/`                                                                       |
 
-`src/App.vue` 已把上傳與串流顯示接起來，但刻意停在**原生 HTML 元素、零樣式**的狀態：
-這個階段要驗證的是資料有沒有正確地邊串邊進畫面，不是版面。編輯、確認、挑候選、送出
-都還沒接上（store 已經有這些動作），元件拆分與切版一併留到下一階段
+`src/App.vue` 依 `phase` 分成兩段：`idle` 是上傳，其餘都走 `ReviewLayout`。
+審核畫面已經切版完成 —— 三區骨架、群組導覽、分段與搜尋、sticky 區段標題、
+一列的四種狀態、編輯／確認／挑候選／重設都能用
 
-`src/style.css` 的 Tailwind 已經打開，`@theme` 的設計 token 也都就位（見
-[SCAFFOLD.md](SCAFFOLD.md#設計-token-走-tailwind-的-theme)）。檔案最後有一段標明
-「Phase 3 拆完元件就刪掉」的可讀性補丁 —— preflight 會把 table 框線與標題級距歸零，
-那段只是讓還沒有 class 的原生 HTML 在切版完成前仍然讀得懂，不是設計的一部分
+還沒做：送出（`SubmitGuard`）、上傳與例外狀態的切版（`FileDropZone`、`ParseErrorBanner`、
+`AbortConfirmDialog`）。上傳那一段目前仍是原生元素
+
+`src/style.css` 的 `@theme` 設計 token 見
+[SCAFFOLD.md](SCAFFOLD.md#設計-token-走-tailwind-的-theme)
 
 ---
 
@@ -232,9 +233,7 @@ type ExtractionTransport = (
 `AbortError` 直接往外丟不包裝，讓呼叫端能分辨「使用者取消」與「真的失敗」
 
 **回傳的 `filename` 用本地的 `File.name`，不是 API 回傳的值**。後端那個只是把我們剛送上去的
-檔名原封不動回傳，是一趟編碼往返之後的回音；同一份資訊本地就有，少繞一圈。
-實務上那一圈確實會壞：[log/06](log/06-docker-整合.md) 實測中文檔名會被 multipart 解析層
-當 latin-1 解成亂碼
+檔名原封不動回傳，是一趟編碼往返之後的回音；同一份資訊本地就有，少繞一圈
 
 ---
 
@@ -460,7 +459,7 @@ flowchart TD
 
 ## 元件配置
 
-`review/` 的一列已經建好（Phase 2），其餘仍是規劃：
+`review/` 全部建好了，`upload/` 與 `parse/` 仍是規劃：
 
 ```
 src/components/
@@ -471,16 +470,16 @@ src/components/
     ParseErrorBanner.vue      ⬜ 規劃
     AbortConfirmDialog.vue    ⬜ 規劃
   review/
-    ReviewLayout.vue          ⬜ 規劃
-    GroupNav.vue              ⬜ 規劃
-    TriageBar.vue             ⬜ 規劃
-    FieldGroupSection.vue     ⬜ 規劃
+    ReviewLayout.vue          ✅ 純排版，三區骨架
+    GroupNav.vue              ✅
+    TriageBar.vue             ✅
+    FieldGroupSection.vue     ✅
     fieldStatusView.ts        ✅ 狀態 → 色條／標註／說明，只有一份
     FieldRow.vue              ✅
     FieldValueEditor.vue      ✅
     CandidatePicker.vue       ✅
     ConfidenceMark.vue        ✅
-    SubmitGuard.vue           ⬜ 規劃
+    SubmitGuard.vue           ⬜ 規劃（Phase 4）
 ```
 
 ### 已建好的四個
@@ -496,6 +495,16 @@ src/components/
 沒有這顆，使用者會以為只能從系統給的三個裡面挑
 
 `ConfidenceMark` 是 `aria-hidden` 的 —— 同一件事右邊的文字標註已經說過，讀螢幕器再念一次是噪音
+
+`ReviewLayout` 只有排版沒有狀態。側欄寬度、捲動邊界、sticky 的層級只在這裡定義一次；
+捲動發生在 main 內部而不是整頁，因為標題列與左欄要一直看得到 ——
+「需要你處理 N」是使用者在 300 列裡唯一的定位點
+
+`GroupNav` 的群組計數用的是**全部欄位**的數字，不是篩選後的。側欄要回答「還有哪幾組沒處理完」，
+跟著篩選變動的話，使用者篩到某一組之後就看不到其他組還剩多少
+
+`TriageBar` 只有兩個分段。參考圖在這裡放了六個狀態 chip 加兩個排序下拉，
+那要求使用者先讀懂六種分類才知道按哪一個
 
 | 元件                 | 目的                                                   | 拿掉會怎樣                                        |
 | -------------------- | ------------------------------------------------------ | ------------------------------------------------- |
@@ -549,7 +558,7 @@ src/components/
 | 已送出不是死路，可以回到審核               | 有人拿掉 `backToReview`                                  |
 | 候選優先於低把握                           | 有人調換 `resolveStatus` 的判斷順序                      |
 | 上傳失敗給得出訊息                         | 有人吞掉 `uploadDocument` 的例外                         |
-| 檔名用本地的 `File.name`                   | 有人為了「忠於 API」改回讀回傳值，中文檔名就變亂碼       |
+| 檔名用本地的 `File.name`                   | 有人為了「忠於 API」改回讀回傳值                         |
 | Tailwind 有生效且 token 接得上 utility     | 有人把 `@import` 註解掉，整份樣式靜默失效                |
 | `bg-blue-500` 不產生任何規則               | 有人把內建調色盤加回來，顏色就會被拿去標不需要處理的東西 |
 | `#app` 的 `min-width` 是 1120px            | 有人拿掉它，窄螢幕會變成錯位而不是橫向捲動               |

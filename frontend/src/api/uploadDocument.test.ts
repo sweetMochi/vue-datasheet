@@ -27,11 +27,10 @@ afterEach(() => {
 describe('檔名', () => {
   /**
    * 後端的 filename 只是我們送上去那個檔名的回音，繞了一圈編碼。
-   * log/06 實測中文檔名會被 multipart 解析層當 latin-1 解成亂碼。
    * 同一份資訊本地就有，沒有理由用遠端的版本。
    */
   it('用本地的 File.name，不用 API 回傳的值', async () => {
-    stubFetch(ok({ document_id: 'doc-1', filename: 'ÀËÅç³ø§i_½d¨Ò.pdf' }))
+    stubFetch(ok({ document_id: 'doc-1', filename: 'renamed-by-server.pdf' }))
 
     const result = await uploadDocument(pdf('檢驗報告_範例.pdf'))
 
