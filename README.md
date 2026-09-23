@@ -21,7 +21,7 @@
 | SSE 傳輸層               | ✅ 完成   | `fetch` ＋ `ReadableStream`，可注入介面、依 HTTP 狀態碼分流（[說明](ARCHITECTURE.md#srcapifetchstreamtransportts--預設傳輸層)）                                                                                     |
 | 狀態與 composable        | ✅ 完成   | `useReviewStore` / `useExtraction` / `useFieldFilters`（[依賴圖](ARCHITECTURE.md#store-依賴關係)）                                                                                                                  |
 | 上傳 / 解析中 / 審核介面 | ✅ 完成   | 四張設計稿全部實作：拖放上傳、串流邊收邊審、群組導覽與分段搜尋、編輯／確認／挑候選／重設、中止確認、解析中斷、送出阻擋與確認（[元件配置](ARCHITECTURE.md#元件配置)）                                                |
-| 防護性測試               | ✅ 112 支 | SSE 分幀、HTTP 狀態分流、中止、解析中途失敗、必填缺漏擋送出、候選答案挑選、重設、重新解析的資料保護、送出、樣式設定、一列的四種狀態、篩選與導覽、送出流程、中止確認與上傳（[清單](ARCHITECTURE.md#測試防的是什麼)） |
+| 防護性測試               | ✅ 120 支 | SSE 分幀、HTTP 狀態分流、中止、解析中途失敗、必填缺漏擋送出、候選答案挑選、重設、重新解析的資料保護、送出、樣式設定、一列的五種狀態、篩選與導覽、送出流程、中止確認與上傳（[清單](ARCHITECTURE.md#測試防的是什麼)） |
 | Docker 整合              | ✅ 完成   | 根目錄 `docker-compose.yml` ＋ `frontend/Dockerfile`（多階段 build → nginx），冷啟 20 秒，已實跑驗證                                                                                                                |
 | 虛擬捲動                 | ✅ 不做   | 已量測：300 列在 4 倍 CPU 降速下按鍵 p95 3.8ms、捲動不掉幀（[log/07](log/07-300欄位渲染量測.md)）                                                                                                                   |
 | 無障礙、跨裝置           | ⬜ 未開始 | 題目列為加分項                                                                                                                                                                                                      |

@@ -15,6 +15,7 @@ import TriageBar from '@/components/review/TriageBar.vue'
 import FieldGroupSection from '@/components/review/FieldGroupSection.vue'
 import FieldRow from '@/components/review/FieldRow.vue'
 import SubmitGuard from '@/components/review/SubmitGuard.vue'
+import ReadyToSubmit from '@/components/review/ReadyToSubmit.vue'
 import FileDropZone from '@/components/upload/FileDropZone.vue'
 import AbortConfirmDialog from '@/components/parse/AbortConfirmDialog.vue'
 import ParseErrorBanner from '@/components/parse/ParseErrorBanner.vue'
@@ -53,6 +54,27 @@ const received = computed(() => store.order.value.length)
  */
 const groupEntries = computed<GroupEntry[]>(() =>
   [...store.groupCounts.value].map(([name, count]) => ({ name, ...count })),
+)
+
+/**
+ * 分段按鈕上的數字則要跟清單對得上：選了群組就只算那一組。
+ * 串流途中群組可能還沒出現在 groupCounts，那時就是 0。
+ */
+const triageCounts = computed(() => {
+  const group = filters.group.value
+  if (!group) return { pending: store.pendingCount.value, total: received.value }
+  return store.groupCounts.value.get(group) ?? { pending: 0, total: 0 }
+})
+
+/**
+ * 全部欄位都處理完了，清單裡要出現送出區塊。
+ *
+ * 只在 review 階段：中止或失敗時手上的欄位就算全確認了，也只是文件的一部分，
+ * 那時該看的是解析中斷的說明帶，不該被一句「都確認完了」蓋過去。
+ * 待處理為 0 代表沒有必填缺漏，所以這時 canSubmit 一定成立
+ */
+const allDone = computed(
+  () => store.phase.value === 'review' && received.value > 0 && store.pendingCount.value === 0,
 )
 
 /**
@@ -264,8 +286,9 @@ const PHASE_TEXT: Record<string, string> = {
       <TriageBar
         v-model:mode="filters.mode.value"
         v-model:keyword="filters.keyword.value"
-        :pending-count="store.pendingCount.value"
-        :total-count="received"
+        v-model:group="filters.group.value"
+        :pending-count="triageCounts.pending"
+        :total-count="triageCounts.total"
         :visible-count="filters.visibleCount.value"
       />
 
@@ -286,8 +309,14 @@ const PHASE_TEXT: Record<string, string> = {
           解析中，第一批欄位馬上就到⋯⋯
         </p>
 
-        <!-- 「篩選後沒中」跟「還沒有資料」是兩件事，文案不能一樣 -->
-        <p v-else-if="filters.isEmptyResult.value" class="text-muted px-6 py-6 text-sm">
+        <!--
+          「篩選後沒中」跟「還沒有資料」是兩件事，文案不能一樣。
+          全部確認完時「需要你處理」本來就是空的，那不是篩選沒中，改由下方的送出區塊說明
+        -->
+        <p
+          v-else-if="filters.isEmptyResult.value && !(allDone && filters.mode.value === 'pending')"
+          class="text-muted px-6 py-6 text-sm"
+        >
           沒有符合條件的欄位。
           <button type="button" class="text-accent underline" @click="filters.clear()">
             清掉篩選
@@ -315,6 +344,13 @@ const PHASE_TEXT: Record<string, string> = {
             @reset="store.resetField(id)"
           />
         </FieldGroupSection>
+
+        <ReadyToSubmit
+          v-if="allDone"
+          :total="received"
+          :edited="store.editedIds.value.length"
+          @submit="requestSubmit()"
+        />
 
         <p v-if="store.isStreaming.value && received > 0" class="text-muted px-6 py-5 text-sm">
           <span class="bg-accent mr-2 inline-block h-2 w-2 rounded-full" />

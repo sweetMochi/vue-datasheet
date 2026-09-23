@@ -219,10 +219,14 @@ export function createReviewStore() {
 
   // ---- 使用者操作 ---------------------------------------------------------
 
+  /**
+   * 改值會清掉確認：使用者確認的是舊的值，新的值還沒被看過。
+   * 高把握度的欄位不受影響 —— 它們不需要確認，清掉了狀態還是 ok
+   */
   function setValue(id: string, value: string) {
     const draft = drafts.get(id)
     if (!draft) return
-    drafts.set(id, { ...draft, value, touched: true })
+    drafts.set(id, { value, touched: true, confirmed: false })
   }
 
   function confirm(id: string) {

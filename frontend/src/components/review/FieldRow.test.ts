@@ -157,6 +157,18 @@ describe('確認與重設', () => {
       draft({ value: '' }),
     )
     await expect.element(missing.getByRole('button', { name: '確認' })).not.toBeInTheDocument()
+    await missing.unmount()
+
+    // 補上值之後才要確認
+    const filled = await mount(
+      'unconfirmed',
+      field({ required: true, value: '', confidence: null }),
+      draft({ value: '經典原味火腿', touched: true }),
+    )
+    expect(filled.container.textContent).toContain('已補值 · 請確認')
+    expect(filled.container.textContent).not.toContain('把握度低')
+    await filled.getByRole('button', { name: '確認' }).click()
+    expect(filled.emitted('confirm')).toHaveLength(1)
   })
 
   it('重設只在真的改過之後才出現', async () => {

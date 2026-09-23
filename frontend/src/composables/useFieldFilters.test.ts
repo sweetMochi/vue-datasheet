@@ -57,9 +57,32 @@ describe('分段', () => {
     expect(filters.sections.value.map((s) => s.group)).toEqual(['基本資料'])
   })
 
-  it('處理完之後那一列就從清單裡消失', () => {
+  it('確認之後那一列就從清單裡消失', () => {
     const { store, filters } = seeded()
+    store.confirm('f3')
+
+    expect(visibleIds(filters.sections.value)).toEqual(['f1'])
+  })
+
+  /**
+   * 改值不算處理完。如果打一個字就放行，那一列會連同輸入框一起被卸載，
+   * 使用者在「需要你處理」裡只打得進一個字
+   */
+  it('改值不會讓那一列消失，要按確認才離開', () => {
+    const { store, filters } = seeded()
+    store.setValue('f3', 'A2603150')
+
+    expect(visibleIds(filters.sections.value)).toEqual(['f1', 'f3'])
+  })
+
+  it('補上缺漏的值也不會讓那一列消失', () => {
+    const { store, filters } = seeded()
+    store.setValue('f1', '經')
+
+    expect(visibleIds(filters.sections.value)).toEqual(['f1', 'f3'])
+
     store.setValue('f1', '經典原味火腿')
+    store.confirm('f1')
 
     expect(visibleIds(filters.sections.value)).toEqual(['f3'])
   })

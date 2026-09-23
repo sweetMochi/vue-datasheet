@@ -40,19 +40,28 @@ export interface ExtractedField {
 export interface FieldDraft {
   /** 目前的值。初始等於 ExtractedField.value */
   value: string
-  /** 使用者按過「確認」 */
+  /**
+   * 使用者按過「確認」或挑過候選答案，而且之後沒有再改值。
+   * 這是唯一的「處理完」訊號 —— 改值會把它清掉，見 setValue
+   */
   confirmed: boolean
-  /** 使用者改過值或挑過候選答案 */
+  /**
+   * 使用者改過值或挑過候選答案。
+   * 不影響狀態判斷，只用來決定重新解析前要不要先問使用者
+   */
   touched: boolean
 }
 
 /**
  * 資訊狀態，決定左側色條的顏色
  *
- * 只有 missing 為必填欄位
- * 判斷優先序：missing > multiCandidate > lowConfidence > ok
+ * missing 與 unconfirmed 只會出現在必填欄位：
+ * - missing：必填但沒有值，唯一會擋住送出的狀態
+ * - unconfirmed：後端沒抽到、使用者補上了值，但還沒按確認
+ *
+ * 判斷優先序：missing > (已確認就是 ok) > unconfirmed > multiCandidate > lowConfidence > ok
  */
-export type FieldStatus = 'missing' | 'multiCandidate' | 'lowConfidence' | 'ok'
+export type FieldStatus = 'missing' | 'unconfirmed' | 'multiCandidate' | 'lowConfidence' | 'ok'
 
 /**
  * 低把握度的界線。
@@ -78,8 +87,13 @@ export function resolveStatus(field: ExtractedField, draft: FieldDraft): FieldSt
   // 必填但沒有值 —— 唯一會擋住送出的狀態，優先於其他判斷
   if (field.required && draft.value.trim() === '') return 'missing'
 
-  // 使用者已經動過手（改值、挑候選、按確認），就不再要求他再看一次
-  if (draft.confirmed || draft.touched) return 'ok'
+  // 只有確認才算處理完。改值不算 —— 打第一個字就放行的話，
+  // 在「需要你處理」裡那一列會連同輸入框一起被卸載，使用者只打得進一個字
+  if (draft.confirmed) return 'ok'
+
+  // 後端沒抽到、使用者補上的值：跟「把握度低」是不同的事，系統對它談不上把握，
+  // 是使用者自己填的，所以另外標示，但一樣要按確認才離開待處理
+  if (field.required && field.value.trim() === '') return 'unconfirmed'
 
   // 候選答案是「要你挑一個」，比「把握度低」更明確，所以排在前面
   if (field.candidates && field.candidates.length > 1) return 'multiCandidate'

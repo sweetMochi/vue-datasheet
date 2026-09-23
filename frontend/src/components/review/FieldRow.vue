@@ -88,7 +88,7 @@ const editor = useTemplateRef<InstanceType<typeof FieldValueEditor>>('editor')
         </span>
 
         <button
-          v-if="props.status === 'lowConfidence' || props.status === 'multiCandidate'"
+          v-if="STATUS_VIEW[props.status].confirmable"
           type="button"
           class="border-accent/40 bg-surface text-accent hover:border-accent h-8 rounded-md border px-3.5 text-[13px] font-medium"
           @click="emit('confirm')"

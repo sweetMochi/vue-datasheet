@@ -28,7 +28,7 @@ const emit = defineEmits<{ select: [GroupName | null] }>()
 
 const LEGEND = [
   { bar: 'bg-danger', text: '必填但沒抽到' },
-  { bar: 'bg-caution', text: '系統把握度低' },
+  { bar: 'bg-caution', text: '系統把握度低／補的值待確認' },
   { bar: 'bg-choose', text: '要你挑一個' },
   { bar: 'bg-line', text: '沒事，不必看' },
 ]

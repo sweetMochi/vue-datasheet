@@ -39,6 +39,49 @@ describe('TriageBar 只問一個問題', () => {
     expect(screen.emitted('update:mode')?.at(-1)).toEqual(['all'])
   })
 
+  it('待處理用跟側欄一樣的角標，沒有待處理就不顯示', async () => {
+    const screen = await render(TriageBar, {
+      props: { pendingCount: 0, totalCount: 120, visibleCount: 0, mode: 'pending', keyword: '' },
+    })
+
+    expect(screen.container.querySelectorAll('.bg-danger-bg')).toHaveLength(0)
+
+    await screen.rerender({ pendingCount: 3 })
+    const badges = screen.container.querySelectorAll('.bg-danger-bg')
+    expect(badges).toHaveLength(1)
+    expect(badges[0].textContent?.trim()).toBe('3')
+  })
+
+  /**
+   * 群組是在側欄選的，離清單很遠。不提示的話，使用者會以為其他組的欄位不見了。
+   */
+  it('選了群組會在清單上方標出來，按 × 就地取消', async () => {
+    const screen = await render(TriageBar, {
+      props: {
+        pendingCount: 5,
+        totalCount: 38,
+        visibleCount: 5,
+        mode: 'pending',
+        keyword: '',
+        group: '基本資料',
+      },
+    })
+
+    expect(screen.container.textContent).toContain('群組：基本資料')
+
+    await screen.getByRole('button', { name: '取消只看基本資料' }).click()
+
+    expect(screen.emitted('update:group')?.at(-1)).toEqual([null])
+  })
+
+  it('沒選群組就不出現群組標籤', async () => {
+    const screen = await render(TriageBar, {
+      props: { pendingCount: 12, totalCount: 120, visibleCount: 12, mode: 'pending', keyword: '' },
+    })
+
+    expect(screen.container.textContent).not.toContain('群組：')
+  })
+
   it('搜尋框對得上 label', async () => {
     const screen = await render(TriageBar, {
       props: { pendingCount: 1, totalCount: 1, visibleCount: 1, mode: 'all', keyword: '' },

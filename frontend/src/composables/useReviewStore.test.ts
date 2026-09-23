@@ -68,6 +68,74 @@ describe('欄位狀態', () => {
   })
 })
 
+describe('只有確認才算處理完', () => {
+  it('改值不算處理完，按了確認才離開待處理', () => {
+    const store = seed()
+    store.setValue('f3', '新批號')
+
+    expect(store.statusOf('f3')).toBe('lowConfidence')
+    expect(store.pendingIds.value).toEqual(['f1', 'f3', 'f6'])
+
+    store.confirm('f3')
+
+    expect(store.statusOf('f3')).toBe('ok')
+    expect(store.pendingIds.value).toEqual(['f1', 'f6'])
+  })
+
+  it('缺漏欄位補上值之後是「待確認」，不是「把握度低」，也還不算處理完', () => {
+    const store = seed()
+    store.setValue('f1', '經典原味火腿')
+
+    // 系統沒抽到，談不上把握度 —— 這是使用者自己填的值
+    expect(store.statusOf('f1')).toBe('unconfirmed')
+    expect(store.pendingCount.value).toBe(3)
+    // 但已經不擋送出：擋送出只看有沒有值，不看確認
+    expect(store.canSubmit.value).toBe(true)
+
+    store.confirm('f1')
+
+    expect(store.statusOf('f1')).toBe('ok')
+    expect(store.pendingIds.value).toEqual(['f3', 'f6'])
+  })
+
+  it('確認之後再改值，要重新確認', () => {
+    const store = seed()
+    store.confirm('f3')
+    store.setValue('f3', '新批號')
+
+    expect(store.drafts.get('f3')?.confirmed).toBe(false)
+    expect(store.statusOf('f3')).toBe('lowConfidence')
+  })
+
+  it('挑過候選之後再改值，回到多個候選', () => {
+    const store = seed()
+    store.chooseCandidate('f6', '2026/05/30')
+    store.setValue('f6', '2026/05/31')
+
+    expect(store.statusOf('f6')).toBe('multiCandidate')
+  })
+
+  it('確認過的必填欄位被清空再補上，還是要重新確認', () => {
+    const store = seed()
+    store.setValue('f1', '經典原味火腿')
+    store.confirm('f1')
+    store.setValue('f1', '')
+
+    expect(store.statusOf('f1')).toBe('missing')
+
+    store.setValue('f1', '經')
+
+    expect(store.statusOf('f1')).toBe('unconfirmed')
+  })
+
+  it('高把握度欄位改值後仍然不必處理', () => {
+    const store = seed()
+    store.setValue('f2', '140 大卡')
+
+    expect(store.statusOf('f2')).toBe('ok')
+  })
+})
+
 describe('送出阻擋', () => {
   it('必填欄位沒填就不能送出，填了才能', () => {
     const store = seed()
