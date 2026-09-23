@@ -248,22 +248,14 @@ export function createReviewStore() {
   /**
    * 送出。
    *
-   * 資料送出給後端的規格不明確，所以這裡不對規格做假設、也不打 API，只推進狀態，
-   * 由畫面把 submitPayload 顯示出來。決定的理由見 log/08
+   * 資料送出給後端的規格不明確，所以這裡不對規格做假設、也不打 API，只推進狀態
+   * （理由見 log/08）。payload 由畫面決定怎麼處理 —— 目前是輸出到 console，
+   * 然後 reset() 回到 idle 等下一份文件
+   *
+   * submitted 是個過場狀態，停留的時間就是使用者看完成對話框的那幾秒
    */
   function markSubmitted() {
     phase.value = 'submitted'
-  }
-
-  /**
-   * 從「已送出」回到審核。
-   *
-   * 存在的理由是誠實：東西沒有真的送到任何地方，把使用者鎖在終點畫面是在演戲。
-   * 欄位與草稿完全不動，只退回 phase —— 使用者看完 payload 想再改就能改
-   */
-  function backToReview() {
-    if (phase.value !== 'submitted') return
-    phase.value = 'review'
   }
 
   /** 整份重來（重新上傳）。重新解析不走這裡，因為 document 要留著 */
@@ -331,7 +323,6 @@ export function createReviewStore() {
     chooseCandidate,
     resetField,
     markSubmitted,
-    backToReview,
     reset,
     discardExtraction,
   }

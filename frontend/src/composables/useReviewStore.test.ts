@@ -238,25 +238,17 @@ describe('送出', () => {
     expect(store.order.value).toHaveLength(6)
   })
 
-  it('已送出不是死路，可以回到審核繼續改', () => {
+  it('送出後 reset 回到 idle，等下一份文件', () => {
     const store = seed()
     store.setValue('f1', '經典原味火腿')
     store.markSubmitted()
 
-    store.backToReview()
+    // 審核員的實際動線是一份接一份，不是停在終點畫面
+    store.reset()
 
-    expect(store.phase.value).toBe('review')
-    // 回去之後欄位與草稿原封不動
-    expect(store.drafts.get('f1')?.value).toBe('經典原味火腿')
-    expect(store.order.value).toHaveLength(6)
-  })
-
-  it('不在已送出狀態時 backToReview 不做事', () => {
-    const store = seed()
-    expect(store.phase.value).toBe('parsing')
-
-    store.backToReview()
-
-    expect(store.phase.value).toBe('parsing')
+    expect(store.phase.value).toBe('idle')
+    expect(store.order.value).toEqual([])
+    expect(store.document.value).toBeNull()
+    expect(store.submitPayload.value).toEqual([])
   })
 })

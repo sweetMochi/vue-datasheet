@@ -6,14 +6,16 @@
  * 刻意不是「解析中畫面 → 轉場 → 審核畫面」—— 欄位一到就進清單，
  * 使用者不必對著空白畫面等數十秒（見 ARCHITECTURE.md 的狀態機）。
  *
- * 還沒做：送出（Phase 4）、上傳與例外狀態的切版（Phase 5）。
+ * 還沒做：上傳與例外狀態的切版（Phase 5）。
  */
-import { computed, reactive, ref } from 'vue'
+import { computed, nextTick, reactive, ref } from 'vue'
 import ReviewLayout from '@/components/review/ReviewLayout.vue'
 import GroupNav, { type GroupEntry } from '@/components/review/GroupNav.vue'
 import TriageBar from '@/components/review/TriageBar.vue'
 import FieldGroupSection from '@/components/review/FieldGroupSection.vue'
 import FieldRow from '@/components/review/FieldRow.vue'
+import SubmitGuard from '@/components/review/SubmitGuard.vue'
+import ModalDialog from '@/components/ui/ModalDialog.vue'
 import { useReviewStore } from '@/composables/useReviewStore'
 import { useExtraction } from '@/composables/useExtraction'
 import { useFieldFilters } from '@/composables/useFieldFilters'
@@ -70,6 +72,66 @@ function requestRetry() {
 function confirmRetry() {
   pendingRetryConfirm.value = false
   retry({ discardEdits: true })
+}
+
+/**
+ * 送出流程：確認 → 輸出 payload → 完成 → 回到 idle 等下一份。
+ *
+ * 不打任何 API（規格不明確，見 log/08），payload 輸出到 console。
+ * 完成後整個回到 idle 而不是停在「已送出」畫面 ——
+ * 審核員的動線是一份接一份，停在終點畫面等於每份都要手動按「重來」
+ */
+const confirmingSubmit = ref(false)
+/** 送出當下的快照。reset() 會清掉 store，所以完成對話框只能靠這個 */
+const submitted = ref<{ total: number; edited: number } | null>(null)
+
+function requestSubmit() {
+  // 送出鈕不灰掉 —— 按下去才說明為什麼不行，並把使用者帶過去
+  if (!store.canSubmit.value) {
+    const first = store.blockingIssues.value[0]
+    if (first) void jumpToField(first.id)
+    return
+  }
+  confirmingSubmit.value = true
+}
+
+function doSubmit() {
+  const payload = store.submitPayload.value
+  confirmingSubmit.value = false
+  store.markSubmitted()
+
+  // 後端沒有接收端點，這裡就是這份資料唯一的出口
+  console.log(`[送出] ${store.document.value?.filename ?? '未命名'}：${payload.length} 個欄位`)
+  console.table(payload)
+
+  submitted.value = {
+    total: payload.length,
+    edited: payload.filter((f) => f.edited).length,
+  }
+}
+
+/** 關掉完成對話框 → 清空一切，等下一份文件 */
+function finishSubmit() {
+  submitted.value = null
+  store.reset()
+  file.value = null
+  filters.clear()
+  filters.mode.value = 'pending'
+}
+
+/**
+ * 跳到某個欄位。
+ *
+ * 要先清掉篩選 —— 使用者可能正篩在某個群組，而缺漏的那個不在裡面，
+ * 捲過去會找不到元素。必填缺漏一定落在「需要你處理」裡，所以切到那一段
+ */
+async function jumpToField(id: string) {
+  filters.clear()
+  filters.mode.value = 'pending'
+  await nextTick()
+  const el = document.getElementById(`field-${id}`)
+  el?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  el?.focus({ preventScroll: true })
 }
 
 const PHASE_TEXT: Record<string, string> = {
@@ -159,6 +221,18 @@ const PHASE_TEXT: Record<string, string> = {
       >
         重新解析
       </button>
+
+      <!--
+        送出鈕永遠可按，不灰掉。灰掉的按鈕不會說為什麼不行、缺哪幾個、該去哪裡
+      -->
+      <button
+        v-if="!store.isStreaming.value"
+        type="button"
+        class="border-accent bg-accent hover:bg-accent-hover h-9 rounded-md border px-4 text-sm font-medium text-white"
+        @click="requestSubmit()"
+      >
+        送出
+      </button>
     </template>
 
     <template #progress>
@@ -185,6 +259,8 @@ const PHASE_TEXT: Record<string, string> = {
         :total-count="received"
         :visible-count="filters.visibleCount.value"
       />
+
+      <SubmitGuard :issues="store.blockingIssues.value" @jump="jumpToField" />
 
       <!-- 中止與解析失敗都保留已抽到的欄位，差別只在原因與可用的動作 -->
       <div
@@ -265,4 +341,50 @@ const PHASE_TEXT: Record<string, string> = {
       </div>
     </template>
   </ReviewLayout>
+
+  <ModalDialog :open="confirmingSubmit" title="確定要送出嗎？" @close="confirmingSubmit = false">
+    <p>
+      {{ store.order.value.length }} 個欄位，其中 {{ store.editedIds.value.length }} 個你動過手。
+    </p>
+    <p class="mt-2">送出後這份文件會關閉，回到上傳畫面等下一份。</p>
+
+    <template #actions>
+      <button
+        type="button"
+        class="border-accent bg-accent hover:bg-accent-hover h-9 rounded-md border px-4 text-sm font-medium text-white"
+        @click="doSubmit()"
+      >
+        確定送出
+      </button>
+      <button
+        type="button"
+        class="border-field bg-surface text-ink h-9 rounded-md border px-4 text-sm"
+        @click="confirmingSubmit = false"
+      >
+        再看看
+      </button>
+    </template>
+  </ModalDialog>
+
+  <!--
+    標題說「送出完成」，內文說清楚它沒有真的送到哪裡。
+    後端的接收端點規格未定（見 log/08），寫成「已成功送達」會是謊報
+  -->
+  <ModalDialog :open="submitted !== null" title="送出完成" @close="finishSubmit()">
+    <p>{{ submitted?.total }} 個欄位已完成審核，其中 {{ submitted?.edited }} 個經過修改。</p>
+    <p class="mt-2">
+      後端尚未提供接收端點，所以欄位資料<strong class="text-ink">輸出到瀏覽器 console</strong>
+      （開發者工具 → Console）。
+    </p>
+
+    <template #actions>
+      <button
+        type="button"
+        class="border-accent bg-accent hover:bg-accent-hover h-9 rounded-md border px-4 text-sm font-medium text-white"
+        @click="finishSubmit()"
+      >
+        好，處理下一份
+      </button>
+    </template>
+  </ModalDialog>
 </template>
