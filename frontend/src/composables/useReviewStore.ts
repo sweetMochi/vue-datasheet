@@ -253,10 +253,10 @@ export function createReviewStore() {
    * 送出。
    *
    * 資料送出給後端的規格不明確，所以這裡不對規格做假設、也不打 API，只推進狀態
-   * （理由見 log/08）。payload 由畫面決定怎麼處理 —— 目前是輸出到 console，
-   * 然後 reset() 回到 idle 等下一份文件
+   * （理由見 log/08）。payload 由畫面決定怎麼處理 —— 目前是輸出到 console
    *
-   * submitted 是個過場狀態，停留的時間就是使用者看完成對話框的那幾秒
+   * 欄位與草稿都不清：送出後資料留在畫面上，仍可編輯、可以再送一次。
+   * 重複送出沒有任何防護，規格到手時要補（見 REVIEW.md 第六項）
    */
   function markSubmitted() {
     phase.value = 'submitted'

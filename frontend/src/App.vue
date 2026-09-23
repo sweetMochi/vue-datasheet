@@ -101,7 +101,7 @@ function confirmRetry() {
   retry({ discardEdits: true })
 }
 
-/** 從頭來過。document_id 失效時這是唯一的出路，送出完成後也走這裡 */
+/** 從頭來過。document_id 失效時這是唯一的出路 */
 function restart() {
   store.reset()
   file.value = null
@@ -110,14 +110,14 @@ function restart() {
 }
 
 /**
- * 送出流程：確認 → 輸出 payload → 完成 → 回到 idle 等下一份。
+ * 送出流程：確認 → 輸出 payload → 跳窗提示已送出。
  *
  * 不打任何 API（規格不明確，見 log/08），payload 輸出到 console。
- * 完成後整個回到 idle 而不是停在「已送出」畫面 ——
- * 審核員的動線是一份接一份，停在終點畫面等於每份都要手動按「重來」
+ * 送出後資料原封不動留在畫面上，phase 停在 submitted，欄位仍可編輯、可以再送一次。
+ * 送出後能不能再改、怎麼回到某一份文件，都要等規格（見 log/08 的「要問出題方的」）
  */
 const confirmingSubmit = ref(false)
-/** 送出當下的快照。reset() 會清掉 store，所以完成對話框只能靠這個 */
+/** 送出當下的快照，完成對話框顯示的是那一次送出的數字 */
 const submitted = ref<{ total: number; edited: number } | null>(null)
 
 function requestSubmit() {
@@ -145,10 +145,9 @@ function doSubmit() {
   }
 }
 
-/** 關掉完成對話框 → 清空一切，等下一份文件 */
+/** 關掉完成對話框。資料不清，留在這份文件上 */
 function finishSubmit() {
   submitted.value = null
-  restart()
 }
 
 /**
@@ -400,7 +399,7 @@ const PHASE_TEXT: Record<string, string> = {
     <p>
       {{ store.order.value.length }} 個欄位，其中 {{ store.editedIds.value.length }} 個你動過手。
     </p>
-    <p class="mt-2">送出後這份文件會關閉，回到上傳畫面等下一份。</p>
+    <p class="mt-2">送出後資料會留在畫面上，之後仍然可以修改。</p>
 
     <template #actions>
       <button
@@ -437,7 +436,7 @@ const PHASE_TEXT: Record<string, string> = {
         class="border-accent bg-accent hover:bg-accent-hover h-9 rounded-md border px-4 text-sm font-medium text-white"
         @click="finishSubmit()"
       >
-        好，處理下一份
+        好
       </button>
     </template>
   </ModalDialog>

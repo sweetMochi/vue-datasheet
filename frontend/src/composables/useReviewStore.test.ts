@@ -306,12 +306,23 @@ describe('送出', () => {
     expect(store.order.value).toHaveLength(6)
   })
 
-  it('送出後 reset 回到 idle，等下一份文件', () => {
+  it('送出後還能改，改過的值會進下一次的 payload', () => {
     const store = seed()
     store.setValue('f1', '經典原味火腿')
     store.markSubmitted()
 
-    // 審核員的實際動線是一份接一份，不是停在終點畫面
+    store.setValue('f1', '經典原味火腿片')
+
+    expect(store.phase.value).toBe('submitted')
+    expect(store.canSubmit.value).toBe(true)
+    expect(store.submitPayload.value.find((f) => f.id === 'f1')?.value).toBe('經典原味火腿片')
+  })
+
+  it('reset 回到 idle，欄位、document、payload 都清乾淨', () => {
+    const store = seed()
+    store.setValue('f1', '經典原味火腿')
+    store.markSubmitted()
+
     store.reset()
 
     expect(store.phase.value).toBe('idle')
