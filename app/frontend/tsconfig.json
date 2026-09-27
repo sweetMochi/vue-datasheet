@@ -10,11 +10,7 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    "verbatimModuleSyntax": true,
-    "isolatedModules": true,
 
-    "noEmit": true,
-    "jsx": "preserve",
     "skipLibCheck": true,
     "resolveJsonModule": true,
 

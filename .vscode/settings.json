@@ -1,0 +1,10 @@
+{
+  // 儲存時以 Prettier 排版，設定沿用 app/frontend/.prettierrc.json
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+
+  // Markdown 保留行尾空白換行，不自動排版
+  "[markdown]": { "editor.formatOnSave": false },
+
+  "eslint.workingDirectories": ["app/frontend"]
+}
