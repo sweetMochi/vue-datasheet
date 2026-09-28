@@ -9,6 +9,11 @@ export default defineConfig({
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
+  server: {
+    proxy: { '/api': 'http://localhost:8000' },
+  },
+  // 預先優化依賴，避免在測試或開發時重複解析
+  optimizeDeps: { include: ['vue', 'pinia'] },
   test: {
     browser: {
       enabled: true,

@@ -22,7 +22,6 @@
     "@vitejs/plugin-vue": "^6.0.9",
     "@vitest/browser": "^5.0.1",
     "@vitest/browser-playwright": "^5.0.1",
-    "@vitest/coverage-v8": "^5.0.1",
     "eslint": "^10.10.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-vue": "^10.11.0",

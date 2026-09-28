@@ -2,11 +2,11 @@
  * 文件解析服務 API 型別
  *
  * 來源：http://localhost:8000/openapi.json（OpenAPI 3.1.0，v0.1.0）
+ *
  */
 
-
 /**
- * HTTP 驗證錯誤的單一項目
+ * OpenAPI HTTP 驗證錯誤的單一項目
  */
 export interface ValidationError {
   loc: (string | number)[]
@@ -15,7 +15,7 @@ export interface ValidationError {
 }
 
 /**
- * HTTP 驗證錯誤的回應
+ * OpenAPI HTTP 驗證錯誤的回應
  */
 export interface HTTPValidationError {
   detail?: ValidationError[]
@@ -27,7 +27,6 @@ export interface HTTPValidationError {
 export interface HTTPErrorResponse {
   detail: string
 }
-
 
 /**
  * 上傳文件內容
@@ -131,10 +130,9 @@ export interface SSEExtractMap {
 /**
  * SSE 上傳文件的事件
  */
-export interface SSEExtractData {
-  event: SSEExtractType
-  data: SSEExtractMap[SSEExtractType]
-}
+export type SSEExtractData = {
+  [K in SSEExtractType]: { event: K; data: SSEExtractMap[K] }
+}[SSEExtractType]
 
 /**
  * SSE 事件的類型
