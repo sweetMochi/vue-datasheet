@@ -89,7 +89,14 @@ npm run build      # 先以 vue-tsc 做型別檢查再建置
 | 項目 | 說明 |
 |---|---|
 | FastAPI 與 HTTP 422 錯誤型別 | AI 額外製作的判斷狀態，尚未理解後端機制 |
-| 單元測試 |  |
+| 把握度為靜態值 | 假設在真實系統，應有後台設置並後端回傳該參數 |
+
+## AI 製作的地方
+
+| 項目 | 說明 |
+|---|---|
+| 單元測試 | 先確認項目才讓 AI 執行，並閱讀過結果 |
+| 流程測試 | AI 搭建 HTML 測試元素 |
 
 ## 技術選型
 
@@ -112,7 +119,6 @@ npm run build      # 先以 vue-tsc 做型別檢查再建置
 | `vitest` / `@vitest/browser` | 5.0.1 | 測試 |
 | `@vitest/browser-playwright` / `playwright` | 5.0.1 / 1.63.0 | 瀏覽器 provider |
 | `vitest-browser-vue` | 3.1.0 | 元件渲染，locator 內建重試 |
-| `@vitest/coverage-v8` | 5.0.1 | 覆蓋率 |
 | `eslint` / `eslint-plugin-vue` / `typescript-eslint` | 10.10.0 / 10.11.0 / 8.70.0 | 靜態檢查 |
 | `prettier` / `prettier-plugin-tailwindcss` | 3.9.8 / 0.8.1 | 格式與 class 排序 |
 | `eslint-config-prettier` | 10.1.8 | 關閉與 Prettier 衝突的 ESLint 規則 |

@@ -16,6 +16,9 @@ export const useApiStore = defineStore('api', () => {
   /** SSE 事件階段 */
   const status = ref<SSEExtractType | null>(null)
 
+  /** 文件資訊 */
+  const docInfo = ref<ApiDocumentRs | null>(null)
+
   /** 進行中的抽取，用來取消，以及判斷是否已被新的抽取取代 */
   let extractController: AbortController | null = null
 
@@ -23,7 +26,7 @@ export const useApiStore = defineStore('api', () => {
    * 上傳文件
    * @param rqData 上傳文件的請求資料
    */
-  async function uploadDocument(rqData: ApiDocumentRq) {
+  async function uploadDoc(rqData: ApiDocumentRq) {
     try {
       const form = new FormData()
       form.append('file', rqData.file)
@@ -50,7 +53,7 @@ export const useApiStore = defineStore('api', () => {
    * @param onEvent SSE 事件回調方法
    * @param options 抽取文件的選項
    */
-  async function extractDocument(
+  async function extractDoc(
     id: string,
     onEvent: (e: SSEExtractData) => void,
     options?: ApiDocumentExtractTest,
@@ -218,8 +221,9 @@ export const useApiStore = defineStore('api', () => {
 
   return {
     status,
-    uploadDocument,
-    extractDocument,
+    docInfo,
+    uploadDoc,
+    extractDoc,
     cancelExtract,
   }
 })

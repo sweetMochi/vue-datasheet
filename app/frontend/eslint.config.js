@@ -14,6 +14,11 @@ export default defineConfig(
     languageOptions: {
       parserOptions: { parser: tseslint.parser },
     },
+    rules: {
+      // TypeScript 本身就會檢查未定義的識別字
+      'no-undef': 'off',
+      'vue/multi-word-component-names': 'off',
+    },
   },
   prettier,
 )
