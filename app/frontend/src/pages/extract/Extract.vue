@@ -32,7 +32,7 @@ const counterNeedConfirmation = computed(() => {
   return list.value.reduce((total, group) => {
     // 每個群組分別計算
     const item = group.list.filter(
-      (field) => field.confidence && field.confidence < CONFIDENCE_THRESHOLD,
+      (field) => field.confidence === null || field.confidence < CONFIDENCE_THRESHOLD,
     )
 
     return total + item.length
@@ -103,7 +103,7 @@ const filterGroup = computed(() => filterStore.group)
  */
 function filterConfirmation(confidence: number | null) {
   if (filterStore.confirmation) {
-    return confidence !== null && confidence < CONFIDENCE_THRESHOLD
+    return confidence === null || confidence < CONFIDENCE_THRESHOLD
   }
 
   return true
@@ -338,7 +338,7 @@ onUnmounted(() => {
             </thead>
             <tbody>
               <template v-for="group in list" :key="`list-${group.group}`">
-                <tr v-for="field in group.list" :key="`group-${field.group}`">
+                <tr v-for="field in group.list" :key="`group-${field.id}`">
                   <template v-if="!filterGroup || filterGroup === group.group">
                     <template v-if="filterConfirmation(field.confidence)">
                       <th scope="row">
